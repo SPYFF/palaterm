@@ -1,0 +1,22 @@
+[project]
+name = "palaterm"
+version = "0.1.0"
+description = "A TUI drawing application inspired by MonoSketch"
+requires-python = ">=3.11"
+dependencies = [
+    "textual==1.0.0",
+    "pyperclip==1.9.0",
+]
+
+[project.scripts]
+palaterm = "palaterm.app:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.409",
+]
+
