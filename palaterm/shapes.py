@@ -2,6 +2,7 @@
 
 from .models import (
     BorderStyle, BORDER_CHARS,
+    EndingStyle,
     FillStyle, FILL_CHARS,
     HAlign, VAlign,
     LineStyle,
@@ -15,6 +16,7 @@ from .models import (
 
 __all__ = [
     "BorderStyle", "BORDER_CHARS",
+    "EndingStyle",
     "FillStyle", "FILL_CHARS",
     "HAlign", "VAlign",
     "LineStyle",

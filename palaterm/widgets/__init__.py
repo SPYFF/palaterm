@@ -6,6 +6,7 @@ from .status_bar import StatusBar
 from .toolbar import (
     AlignCell, AlignmentGrid,
     CharsetButton, CharsetButtons,
+    EndingButton, LineEndingsPanel,
     LayerButton, LayerButtons,
     LineStyleButton, LineStyleButtons,
     OptionButton, ShapeAlignButtons, ShapeAlignCell, StyleButton, StyleButtons,
@@ -21,6 +22,7 @@ __all__ = [
     "LayerButton", "LayerButtons",
     "StyleButton", "StyleButtons",
     "LineStyleButton", "LineStyleButtons",
+    "EndingButton", "LineEndingsPanel",
     "AlignCell", "AlignmentGrid",
     "ShapeAlignCell", "ShapeAlignButtons",
     "CharsetButton", "CharsetButtons",

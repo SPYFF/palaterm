@@ -2,6 +2,7 @@
 
 from .enums import (
     BorderStyle, BORDER_CHARS,
+    EndingStyle,
     FillStyle, FILL_CHARS,
     HAlign, VAlign,
     LineStyle,
@@ -15,6 +16,7 @@ from .line import LineShape, _braille_line
 
 __all__ = [
     "BorderStyle", "BORDER_CHARS",
+    "EndingStyle",
     "FillStyle", "FILL_CHARS",
     "HAlign", "VAlign",
     "LineStyle",

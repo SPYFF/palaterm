@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import math
+
 from ..geometry import Point, Rect
 from .base import Shape
 from .charset import CharSet
-from .enums import BORDER_CHARS, BorderStyle, LineStyle
+from .enums import (
+    ARROW_CHARS, ARROW_CHARS_ASCII, BORDER_CHARS, BorderStyle,
+    Direction, ENDING_CHARS, EndingStyle, LineStyle,
+)
 
 
 _BRAILLE_DOTS = {
@@ -95,12 +100,16 @@ class LineShape(Shape):
     """A line connecting two points."""
 
     def __init__(self, start: Point, end: Point, border: BorderStyle = BorderStyle.LIGHT,
-                 line_style: LineStyle = LineStyle.ORTHOGONAL):
+                 line_style: LineStyle = LineStyle.ORTHOGONAL,
+                 start_ending: EndingStyle = EndingStyle.NONE,
+                 end_ending: EndingStyle = EndingStyle.NONE):
         super().__init__()
         self.start = start
         self.end = end
         self.border = border
         self.line_style = line_style
+        self.start_ending = start_ending
+        self.end_ending = end_ending
         self.start_side: str | None = None  # "left"/"right"/"top"/"bottom" or None
         self.end_side: str | None = None
         self._joint_points: list[Point] = []
@@ -181,18 +190,19 @@ class LineShape(Shape):
         if self.line_style == LineStyle.STRAIGHT or self.border == BorderStyle.BRAILLE:
             if charset == CharSet.ASCII:
                 if self.line_style == LineStyle.STRAIGHT:
-                    return _ascii_line(self.start, self.end)
-                # Orthogonal braille in ASCII: render each segment
-                cells: dict[tuple[int, int], str] = {}
-                for i in range(len(self._joint_points) - 1):
-                    cells.update(_ascii_line(self._joint_points[i], self._joint_points[i + 1]))
-                return cells
-            if self.line_style == LineStyle.STRAIGHT:
-                return _braille_line(self.start, self.end)
-            # Orthogonal braille: render each segment
-            cells = {}
-            for i in range(len(self._joint_points) - 1):
-                cells.update(_braille_line(self._joint_points[i], self._joint_points[i + 1]))
+                    cells = _ascii_line(self.start, self.end)
+                else:
+                    cells: dict[tuple[int, int], str] = {}
+                    for i in range(len(self._joint_points) - 1):
+                        cells.update(_ascii_line(self._joint_points[i], self._joint_points[i + 1]))
+            else:
+                if self.line_style == LineStyle.STRAIGHT:
+                    cells = _braille_line(self.start, self.end)
+                else:
+                    cells = {}
+                    for i in range(len(self._joint_points) - 1):
+                        cells.update(_braille_line(self._joint_points[i], self._joint_points[i + 1]))
+            self._apply_endings(cells, charset)
             return cells
 
         cells: dict[tuple[int, int], str] = {}
@@ -232,14 +242,41 @@ class LineShape(Shape):
                 cells[(p.col, p.row)] = bl
 
         if points:
-            cells[(points[0].col, points[0].row)] = self._endpoint_char(
-                points[0], points[1] if len(points) > 1 else points[0]
-            )
-            cells[(points[-1].col, points[-1].row)] = self._endpoint_char(
-                points[-1], points[-2] if len(points) > 1 else points[-1], is_end=True
-            )
+            adj_start = points[1] if len(points) > 1 else points[0]
+            adj_end = points[-2] if len(points) > 1 else points[-1]
+            if self.start_ending != EndingStyle.NONE:
+                direction = self._direction_from_points(adj_start, points[0])
+                cells[(points[0].col, points[0].row)] = self._ending_char(
+                    self.start_ending, direction, charset)
+            else:
+                cells[(points[0].col, points[0].row)] = self._endpoint_char(
+                    points[0], adj_start)
+            if self.end_ending != EndingStyle.NONE:
+                direction = self._direction_from_points(adj_end, points[-1])
+                cells[(points[-1].col, points[-1].row)] = self._ending_char(
+                    self.end_ending, direction, charset)
+            else:
+                cells[(points[-1].col, points[-1].row)] = self._endpoint_char(
+                    points[-1], adj_end, is_end=True)
 
         return cells
+
+    def _apply_endings(self, cells: dict[tuple[int, int], str], charset: CharSet) -> None:
+        """Apply endpoint styles to straight/braille line cells."""
+        if self.line_style == LineStyle.STRAIGHT:
+            pts = [self.start, self.end]
+        else:
+            pts = self._joint_points
+        if len(pts) < 2:
+            return
+        if self.start_ending != EndingStyle.NONE:
+            direction = self._direction_from_points(pts[1], pts[0])
+            cells[(pts[0].col, pts[0].row)] = self._ending_char(
+                self.start_ending, direction, charset)
+        if self.end_ending != EndingStyle.NONE:
+            direction = self._direction_from_points(pts[-2], pts[-1])
+            cells[(pts[-1].col, pts[-1].row)] = self._ending_char(
+                self.end_ending, direction, charset)
 
     def _endpoint_char(self, point: Point, adjacent: Point, is_end: bool = False) -> str:
         if point.col == adjacent.col and point.row == adjacent.row:
@@ -251,3 +288,26 @@ class LineShape(Shape):
         if self.border == BorderStyle.HEAVY:
             return "╻" if adjacent.row > point.row else "╹"
         return "╷" if adjacent.row > point.row else "╵"
+
+    def _ending_char(self, style: EndingStyle, direction: Direction, charset: CharSet) -> str:
+        """Get the character for a given ending style and direction."""
+        if style == EndingStyle.ARROW:
+            if charset == CharSet.ASCII:
+                return ARROW_CHARS_ASCII[direction]
+            return ARROW_CHARS[direction]
+        if charset == CharSet.ASCII:
+            return ENDING_CHARS[style][1]
+        return ENDING_CHARS[style][0]
+
+    @staticmethod
+    def _direction_from_points(frm: Point, to: Point) -> Direction:
+        """Determine compass direction from frm toward to."""
+        dc = to.col - frm.col
+        dr = to.row - frm.row
+        if dc == 0 and dr == 0:
+            return Direction.E
+        angle = math.atan2(-dr, dc)  # y-axis inverted in terminal
+        # Quantize to 8 sectors (each 45°)
+        idx = round(angle / (math.pi / 4)) % 8
+        return [Direction.E, Direction.NE, Direction.N, Direction.NW,
+                Direction.W, Direction.SW, Direction.S, Direction.SE][idx]

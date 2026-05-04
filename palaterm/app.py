@@ -12,12 +12,12 @@ from textual.events import MouseUp
 from .commands import AddShape, CommandHistory, MoveShapes, RemoveShapes, TransformShapes
 from .controllers import PanelController, ToolController
 from .serialization import load_canvas, save_canvas
-from .shapes import CharSet, HAlign, LineShape, LineStyle, RectangleShape, TextShape, VAlign
+from .shapes import CharSet, EndingStyle, HAlign, LineShape, LineStyle, RectangleShape, TextShape, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, ToolType
 from .widgets import (
     AlignCell, AlignmentGrid, CanvasWidget, CharsetButton, CharsetButtons,
-    FilePathModal, LayerButton, LayerButtons,
-    LineStyleButton, LineStyleButtons, OptionButton, ShapeAlignButtons,
+    EndingButton, FilePathModal, LayerButton, LayerButtons,
+    LineEndingsPanel, LineStyleButton, LineStyleButtons, OptionButton, ShapeAlignButtons,
     ShapeAlignCell, StatusBar, StyleButton, StyleButtons, ToolButton, Toolbar, ToolOptions,
 )
 
@@ -114,6 +114,7 @@ class PalatermApp(App):
             yield ToolOptions()
             yield StyleButtons()
             yield LineStyleButtons()
+            yield LineEndingsPanel()
             yield AlignmentGrid()
             yield ShapeAlignButtons()
             yield LayerButtons()
@@ -189,6 +190,27 @@ class PalatermApp(App):
             for shape in tool.selected:
                 if isinstance(shape, LineShape):
                     shape.line_style = event.line_style
+            cw.refresh()
+
+    def on_ending_button_clicked(self, event: EndingButton.Clicked) -> None:
+        if event.endpoint == "start":
+            self._tool_ctrl.start_ending = event.ending
+        else:
+            self._tool_ctrl.end_ending = event.ending
+        self.query_one(LineEndingsPanel).set_active(
+            self._tool_ctrl.start_ending, self._tool_ctrl.end_ending)
+        cw = self.canvas_widget
+        tool = cw.tool
+        if isinstance(tool, LineTool):
+            tool.start_ending = self._tool_ctrl.start_ending
+            tool.end_ending = self._tool_ctrl.end_ending
+        elif isinstance(tool, SelectTool):
+            for shape in tool.selected:
+                if isinstance(shape, LineShape):
+                    if event.endpoint == "start":
+                        shape.start_ending = event.ending
+                    else:
+                        shape.end_ending = event.ending
             cw.refresh()
 
     def on_align_cell_clicked(self, event: AlignCell.Clicked) -> None:

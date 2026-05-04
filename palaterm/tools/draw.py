@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..geometry import Point, Rect
-from ..shapes import BorderStyle, LineShape, LineStyle, RectangleShape, Shape, TextShape
+from ..shapes import BorderStyle, EndingStyle, LineShape, LineStyle, RectangleShape, Shape, TextShape
 
 
 class DrawTool:
@@ -54,15 +54,20 @@ class TextTool(DrawTool):
 
 class LineTool(DrawTool):
     def __init__(self, border_style: BorderStyle = BorderStyle.LIGHT,
-                 line_style: LineStyle = LineStyle.ORTHOGONAL) -> None:
+                 line_style: LineStyle = LineStyle.ORTHOGONAL,
+                 start_ending: EndingStyle = EndingStyle.NONE,
+                 end_ending: EndingStyle = EndingStyle.NONE) -> None:
         super().__init__()
         self.border_style = border_style
         self.line_style = line_style
+        self.start_ending = start_ending
+        self.end_ending = end_ending
         self.snap_target: object | None = None  # SnapResult during drag
 
     def _create_shape(self, start: Point) -> Shape:
         return LineShape(Point(start.col, start.row), Point(start.col, start.row),
-                         border=self.border_style, line_style=self.line_style)
+                         border=self.border_style, line_style=self.line_style,
+                         start_ending=self.start_ending, end_ending=self.end_ending)
 
     def on_mouse_down(self, col: int, row: int, canvas) -> Shape | None:
         from ..connectors import Anchor, Connector, find_snap

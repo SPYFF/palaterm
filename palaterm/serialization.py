@@ -9,7 +9,7 @@ from .canvas import Canvas
 from .connectors import Anchor, Connector, ConnectorManager, Side
 from .geometry import Point, Rect
 from .models import (
-    BorderStyle, CharSet, FillStyle, HAlign, VAlign, LineStyle,
+    BorderStyle, CharSet, EndingStyle, FillStyle, HAlign, VAlign, LineStyle,
     RectangleShape, TextShape, LineShape,
 )
 
@@ -56,6 +56,10 @@ def _serialize_line(s: LineShape) -> dict:
         d["start_side"] = s.start_side
     if s.end_side:
         d["end_side"] = s.end_side
+    if s.start_ending != EndingStyle.NONE:
+        d["start_ending"] = _enum_str(s.start_ending)
+    if s.end_ending != EndingStyle.NONE:
+        d["end_ending"] = _enum_str(s.end_ending)
     return d
 
 
@@ -107,6 +111,8 @@ def _deserialize_line(d: dict) -> LineShape:
         Point(d["end_col"], d["end_row"]),
         border=BorderStyle[d["border"].upper()],
         line_style=LineStyle[d.get("line_style", "orthogonal").upper()],
+        start_ending=EndingStyle[d.get("start_ending", "none").upper()],
+        end_ending=EndingStyle[d.get("end_ending", "none").upper()],
     )
     if "id" in d:
         s.id = d["id"]

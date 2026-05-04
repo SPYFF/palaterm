@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from ..shapes import BorderStyle, LineStyle
+from ..shapes import BorderStyle, EndingStyle, LineStyle
 from ..tools import LineTool, RectangleTool, SelectTool, TextTool, ToolType
 
 
@@ -12,6 +12,8 @@ class ToolController:
     def __init__(self) -> None:
         self.border_style = BorderStyle.LIGHT
         self.line_style = LineStyle.ORTHOGONAL
+        self.start_ending = EndingStyle.NONE
+        self.end_ending = EndingStyle.NONE
 
     def create_tool(self, tool_type: ToolType):
         match tool_type:
@@ -22,4 +24,5 @@ class ToolController:
             case ToolType.TEXT:
                 return TextTool()
             case ToolType.LINE:
-                return LineTool(self.border_style, self.line_style)
+                return LineTool(self.border_style, self.line_style,
+                                self.start_ending, self.end_ending)

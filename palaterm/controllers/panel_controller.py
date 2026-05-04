@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from ..shapes import LineShape, LineStyle, TextShape
+from ..shapes import EndingStyle, LineShape, LineStyle, TextShape
 from ..tools import LineTool, RectangleTool, SelectTool
 from ..widgets import (
-    AlignmentGrid, LayerButtons, LineStyleButtons,
+    AlignmentGrid, LayerButtons, LineEndingsPanel, LineStyleButtons,
     ShapeAlignButtons, StyleButtons, ToolOptions,
 )
 
@@ -59,6 +59,17 @@ class PanelController:
                 styles = [s.line_style for s in selected if isinstance(s, LineShape)]
                 if styles:
                     ls_widget.set_active(styles[0])
+
+        # LineEndingsPanel: Line tool active, or select with LineShape selected
+        endings_widget = self._q(LineEndingsPanel)
+        endings_widget.set_class(show_line_style, "visible")
+        if show_line_style:
+            if isinstance(tool, LineTool):
+                endings_widget.set_active(tool.start_ending, tool.end_ending)
+            elif is_select:
+                lines = [s for s in selected if isinstance(s, LineShape)]
+                if lines:
+                    endings_widget.set_active(lines[0].start_ending, lines[0].end_ending)
 
         # ShapeAlignButtons: select tool with 2+ shapes selected
         self._q(ShapeAlignButtons).set_class(len(selected) >= 2, "visible")

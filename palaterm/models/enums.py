@@ -51,3 +51,47 @@ FILL_CHARS: dict[FillStyle, str] = {
     FillStyle.MEDIUM: "▒",
     FillStyle.LIGHT: "░",
 }
+
+
+class EndingStyle(Enum):
+    NONE = auto()
+    ARROW = auto()
+    SQUARE = auto()
+    CIRCLE = auto()
+    STAR = auto()
+
+
+class Direction(Enum):
+    N = auto()
+    S = auto()
+    E = auto()
+    W = auto()
+    NE = auto()
+    NW = auto()
+    SE = auto()
+    SW = auto()
+
+
+# Arrow characters per direction (Unicode)
+ARROW_CHARS: dict[Direction, str] = {
+    Direction.N: "▲", Direction.S: "▼",
+    Direction.E: "▶", Direction.W: "◀",
+    Direction.NE: "◀", Direction.NW: "▶",
+    Direction.SE: "▲", Direction.SW: "▶",
+}
+
+# Arrow characters per direction (ASCII)
+ARROW_CHARS_ASCII: dict[Direction, str] = {
+    Direction.N: "^", Direction.S: "v",
+    Direction.E: ">", Direction.W: "<",
+    Direction.NE: "<", Direction.NW: ">",
+    Direction.SE: "^", Direction.SW: ">",
+}
+
+# Non-directional ending characters
+ENDING_CHARS: dict[EndingStyle, tuple[str, str]] = {
+    # (unicode, ascii)
+    EndingStyle.SQUARE: ("■", "#"),
+    EndingStyle.CIRCLE: ("●", "o"),
+    EndingStyle.STAR: ("*", "*"),
+}
