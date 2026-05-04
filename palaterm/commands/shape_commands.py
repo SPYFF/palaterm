@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from ..canvas import Canvas
 from ..connectors import Anchor, Connector, point_on_edge
 from ..models.base import Shape
@@ -117,3 +119,30 @@ class MoveShapes:
                 else:
                     line.end = Point(line.end.col + dcol, line.end.row + drow)
                 line._recompute()
+
+
+class TransformShapes:
+    """Records before/after geometry for any shape transform (resize, etc.)."""
+
+    def __init__(self, snapshots: list[tuple[Shape, dict[str, Any]]]) -> None:
+        self._old = snapshots
+        self._new: list[tuple[Shape, dict[str, Any]]] = [
+            (shape, {attr: getattr(shape, attr) for attr in attrs})
+            for shape, attrs in snapshots
+        ]
+
+    def execute(self) -> None:
+        for (shape, _), (_, new_attrs) in zip(self._old, self._new):
+            for attr, val in new_attrs.items():
+                setattr(shape, attr, val)
+            recompute = getattr(shape, "_recompute", None)
+            if recompute:
+                recompute()
+
+    def undo(self) -> None:
+        for shape, old_attrs in self._old:
+            for attr, val in old_attrs.items():
+                setattr(shape, attr, val)
+            recompute = getattr(shape, "_recompute", None)
+            if recompute:
+                recompute()

@@ -5,7 +5,7 @@ from __future__ import annotations
 from ..geometry import Rect
 from .base import RectShape
 from .braille import braille_rect
-from .charset import CharSet, to_ascii
+from .charset import CharSet
 from .enums import BORDER_CHARS, BorderStyle, FILL_CHARS, FillStyle
 
 
@@ -23,8 +23,6 @@ class RectangleShape(RectShape):
 
         if self.fill != FillStyle.NONE:
             fc = FILL_CHARS[self.fill]
-            if charset == CharSet.ASCII:
-                fc = to_ascii(fc)
             for row in range(r.top, r.bottom + 1):
                 for col in range(r.left, r.right + 1):
                     cells[(col, row)] = fc
@@ -34,11 +32,9 @@ class RectangleShape(RectShape):
             return cells
 
         tl, tr, bl, br, h, v = BORDER_CHARS[self.border]
-        if charset == CharSet.ASCII:
-            tl, tr, bl, br, h, v = (to_ascii(c) for c in (tl, tr, bl, br, h, v))
 
         if r.width == 1 and r.height == 1:
-            cells[(r.left, r.top)] = "#" if charset == CharSet.ASCII else "□"
+            cells[(r.left, r.top)] = "□"
         elif r.width == 1:
             for row in range(r.top, r.bottom + 1):
                 cells[(r.left, row)] = v

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ..geometry import Point, Rect
 from .base import Shape
-from .charset import CharSet, to_ascii
+from .charset import CharSet
 from .enums import BORDER_CHARS, BorderStyle, LineStyle
 
 
@@ -198,8 +198,6 @@ class LineShape(Shape):
         cells: dict[tuple[int, int], str] = {}
         points = self._joint_points
         tl, tr, bl, br, h, v = BORDER_CHARS[self.border]
-        if charset == CharSet.ASCII:
-            tl, tr, bl, br, h, v = (to_ascii(c) for c in (tl, tr, bl, br, h, v))
 
         for i in range(len(points) - 1):
             p1, p2 = points[i], points[i + 1]
@@ -235,27 +233,21 @@ class LineShape(Shape):
 
         if points:
             cells[(points[0].col, points[0].row)] = self._endpoint_char(
-                points[0], points[1] if len(points) > 1 else points[0], charset
+                points[0], points[1] if len(points) > 1 else points[0]
             )
             cells[(points[-1].col, points[-1].row)] = self._endpoint_char(
-                points[-1], points[-2] if len(points) > 1 else points[-1], charset, is_end=True
+                points[-1], points[-2] if len(points) > 1 else points[-1], is_end=True
             )
 
         return cells
 
-    def _endpoint_char(self, point: Point, adjacent: Point,
-                       charset: CharSet = CharSet.UNICODE, is_end: bool = False) -> str:
-        _, _, _, _, h, v = BORDER_CHARS[self.border]
-        if charset == CharSet.ASCII:
-            h, v = to_ascii(h), to_ascii(v)
+    def _endpoint_char(self, point: Point, adjacent: Point, is_end: bool = False) -> str:
         if point.col == adjacent.col and point.row == adjacent.row:
-            return "*" if charset == CharSet.ASCII else "•"
+            return "•"
         if point.row == adjacent.row:
-            # Horizontal segment — determine direction
             if self.border == BorderStyle.HEAVY:
                 return "╺" if adjacent.col > point.col else "╸"
             return "╶" if adjacent.col > point.col else "╴"
-        # Vertical segment — determine direction
         if self.border == BorderStyle.HEAVY:
             return "╻" if adjacent.row > point.row else "╹"
         return "╷" if adjacent.row > point.row else "╵"

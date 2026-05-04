@@ -4,7 +4,7 @@ from __future__ import annotations
 from .connectors import ConnectorManager
 from .crossings import is_connectable, resolve_crossing
 from .geometry import Point, Rect
-from .shapes import CharSet, Shape
+from .shapes import CharSet, Shape, to_ascii
 
 
 class Canvas:
@@ -68,6 +68,8 @@ class Canvas:
                         cells[(col, row)] = resolve_crossing(existing, ch)
                     else:
                         cells[(col, row)] = ch
+        if charset == CharSet.ASCII:
+            cells = {pos: to_ascii(ch) for pos, ch in cells.items()}
         return cells
 
     def export_to_text(self, shapes: list[Shape] | None = None,
@@ -81,6 +83,8 @@ class Canvas:
             cells.update(shape.render(charset))
         if not cells:
             return ""
+        if charset == CharSet.ASCII:
+            cells = {pos: to_ascii(ch) for pos, ch in cells.items()}
         min_col = min(c for c, r in cells)
         max_col = max(c for c, r in cells)
         min_row = min(r for c, r in cells)

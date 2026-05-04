@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from ..geometry import Rect
 from .base import RectShape
-from .charset import CharSet, to_ascii
+from .charset import CharSet
 from .enums import BORDER_CHARS, BorderStyle, HAlign, VAlign
 
 
@@ -29,8 +29,6 @@ class TextShape(RectShape):
 
         if self.has_border and r.width >= 2 and r.height >= 2:
             tl, tr, bl, br, h, v = BORDER_CHARS[self.border]
-            if charset == CharSet.ASCII:
-                tl, tr, bl, br, h, v = (to_ascii(c) for c in (tl, tr, bl, br, h, v))
             cells[(r.left, r.top)] = tl
             cells[(r.right, r.top)] = tr
             cells[(r.left, r.bottom)] = bl

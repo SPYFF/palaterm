@@ -9,7 +9,7 @@ from textual.binding import Binding
 from textual.containers import Vertical
 from textual.events import MouseUp
 
-from .commands import AddShape, CommandHistory, MoveShapes, RemoveShapes
+from .commands import AddShape, CommandHistory, MoveShapes, RemoveShapes, TransformShapes
 from .controllers import PanelController, ToolController
 from .serialization import load_canvas, save_canvas
 from .shapes import CharSet, HAlign, LineShape, LineStyle, RectangleShape, TextShape, VAlign
@@ -142,6 +142,11 @@ class PalatermApp(App):
     def on_canvas_widget_shape_moved(self, event: CanvasWidget.ShapeMoved) -> None:
         # Shape already moved by tool; record for undo (reverse the move on undo)
         cmd = MoveShapes(event.shapes, event.dcol, event.drow, self.canvas_widget.canvas)
+        self.history._undo.append(cmd)
+        self.history._redo.clear()
+
+    def on_canvas_widget_shape_resized(self, event: CanvasWidget.ShapeResized) -> None:
+        cmd = TransformShapes([(event.shape, event.old_attrs)])
         self.history._undo.append(cmd)
         self.history._redo.clear()
 

@@ -12,7 +12,7 @@ from textual.widget import Widget
 from ..canvas import Canvas
 from ..geometry import Point, Rect
 from ..rendering import FrameRenderer
-from ..shapes import CharSet, TextShape
+from ..shapes import CharSet, LineShape, TextShape
 from ..tools import SelectTool, TextTool, Tool
 from .modals import TextEditModal
 
@@ -31,6 +31,12 @@ class CanvasWidget(Widget, can_focus=True):
             self.shapes = shapes
             self.dcol = dcol
             self.drow = drow
+
+    class ShapeResized(Message):
+        def __init__(self, shape, old_attrs: dict) -> None:
+            super().__init__()
+            self.shape = shape
+            self.old_attrs = old_attrs
 
     DEFAULT_CSS = """
     CanvasWidget {
@@ -54,6 +60,7 @@ class CanvasWidget(Widget, can_focus=True):
         self._last_click_time: float = 0
         self._last_click_pos: tuple[int, int] = (0, 0)
         self._move_start: Point | None = None
+        self._resize_snapshot: tuple | None = None
 
     def _to_canvas_coords(self, x: int, y: int) -> tuple[int, int]:
         return x + self._scroll_col, y + self._scroll_row
@@ -105,6 +112,12 @@ class CanvasWidget(Widget, can_focus=True):
         self._mouse_down = True
         self._move_start = Point(col, row)
         self.tool.on_mouse_down(col, row, self.canvas)
+        if isinstance(self.tool, SelectTool) and self.tool._resizing and self.tool._resize_shape:
+            shape = self.tool._resize_shape
+            if isinstance(shape, LineShape):
+                self._resize_snapshot = (shape, {"start": shape.start, "end": shape.end})
+            else:
+                self._resize_snapshot = (shape, {"rect": shape.rect})
         self.refresh()
 
     def on_mouse_move(self, event: MouseMove) -> None:
@@ -129,6 +142,7 @@ class CanvasWidget(Widget, can_focus=True):
         # Check if select tool was moving before on_mouse_up resets state
         was_moving = (isinstance(self.tool, SelectTool) and
                       self.tool._moving and self.tool.selected and self._move_start)
+        was_resizing = (isinstance(self.tool, SelectTool) and self.tool._resizing)
         result = self.tool.on_mouse_up(col, row, self.canvas)
         if isinstance(self.tool, TextTool) and isinstance(result, TextShape):
             self.open_text_editor(result)
@@ -139,5 +153,9 @@ class CanvasWidget(Widget, can_focus=True):
             drow = row - self._move_start.row
             if dcol != 0 or drow != 0:
                 self.post_message(self.ShapeMoved(list(self.tool.selected), dcol, drow))
+        elif was_resizing and self._resize_snapshot:
+            shape, old_attrs = self._resize_snapshot
+            self.post_message(self.ShapeResized(shape, old_attrs))
         self._move_start = None
+        self._resize_snapshot = None
         self.refresh()
