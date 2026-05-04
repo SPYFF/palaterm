@@ -28,6 +28,7 @@ class SelectTool:
         self._resize_anchor: Point | None = None
         self._rect_selecting: bool = False
         self.selection_rect: Rect | None = None
+        self.snap_target: object | None = None  # SnapResult during line handle drag
 
     def on_mouse_down(self, col: int, row: int, canvas) -> Shape | None:
         from . import handle_at, Handle
@@ -94,27 +95,56 @@ class SelectTool:
 
     def on_mouse_drag(self, col: int, row: int, canvas) -> None:
         if self._resizing and self._resize_shape and self._resize_handle:
-            self._apply_resize(col, row)
+            self._apply_resize(col, row, canvas)
         elif self._moving and self.selected and self._drag_start:
             dcol = col - self._drag_start.col
             drow = row - self._drag_start.row
             if dcol != 0 or drow != 0:
+                moved_ids = {s.id for s in self.selected}
                 for shape in self.selected:
                     shape.move(dcol, drow)
+                # Propagate to connected lines not in selection
+                from ..connectors import Anchor
+                for shape in self.selected:
+                    for conn in canvas.connector_mgr.get_by_target(shape.id):
+                        if conn.line_id in moved_ids:
+                            continue
+                        line = next((s for s in canvas.shapes if s.id == conn.line_id), None)
+                        if not isinstance(line, LineShape):
+                            continue
+                        if conn.anchor == Anchor.START:
+                            line.start = Point(line.start.col + dcol, line.start.row + drow)
+                        else:
+                            line.end = Point(line.end.col + dcol, line.end.row + drow)
+                        line._recompute()
                 self._drag_start = Point(col, row)
         elif self._rect_selecting and self._drag_start:
             self.selection_rect = Rect.from_points(self._drag_start, Point(col, row))
 
-    def _apply_resize(self, col: int, row: int) -> None:
+    def _apply_resize(self, col: int, row: int, canvas=None) -> None:
         from . import Handle
 
         shape = self._resize_shape
         handle = self._resize_handle
         if isinstance(shape, LineShape):
-            if handle == Handle.LINE_START:
-                shape.start = Point(col, row)
+            from ..connectors import find_snap
+            snap = None
+            if canvas:
+                snap = find_snap(col, row, canvas.shapes, exclude_id=shape.id)
+            self.snap_target = snap
+            if snap:
+                pt = snap.point
+                side_name = snap.side.name.lower()
             else:
-                shape.end = Point(col, row)
+                pt = Point(col, row)
+                side_name = None
+
+            if handle == Handle.LINE_START:
+                shape.start = pt
+                shape.start_side = side_name
+            else:
+                shape.end = pt
+                shape.end_side = side_name
             shape._recompute()
         elif isinstance(shape, RectShape) and self._resize_anchor:
             anchor = self._resize_anchor
@@ -132,7 +162,20 @@ class SelectTool:
 
     def on_mouse_up(self, col: int, row: int, canvas) -> Shape | None:
         if self._resizing:
-            self._apply_resize(col, row)
+            self._apply_resize(col, row, canvas)
+            # Commit connector for line handle
+            from . import Handle
+            if isinstance(self._resize_shape, LineShape) and self._resize_handle in (Handle.LINE_START, Handle.LINE_END):
+                from ..connectors import Anchor, Connector, find_snap
+                line = self._resize_shape
+                anchor = Anchor.START if self._resize_handle == Handle.LINE_START else Anchor.END
+                snap = find_snap(col, row, canvas.shapes, exclude_id=line.id)
+                if snap:
+                    connector = Connector(line.id, anchor, snap.target_id, snap.side, snap.ratio)
+                    canvas.connector_mgr.add(connector)
+                else:
+                    canvas.connector_mgr.remove_by_line_anchor(line.id, anchor)
+            self.snap_target = None
         elif self._rect_selecting and self._drag_start:
             rect = Rect.from_points(self._drag_start, Point(col, row))
             if rect.width > 1 or rect.height > 1:

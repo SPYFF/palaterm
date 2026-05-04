@@ -1,6 +1,7 @@
 """Canvas model: manages shapes and composites them into a character grid."""
 
 from __future__ import annotations
+from .connectors import ConnectorManager
 from .crossings import is_connectable, resolve_crossing
 from .geometry import Point, Rect
 from .shapes import CharSet, Shape
@@ -11,6 +12,7 @@ class Canvas:
 
     def __init__(self) -> None:
         self.shapes: list[Shape] = []
+        self.connector_mgr = ConnectorManager()
 
     def add_shape(self, shape: Shape) -> None:
         self.shapes.append(shape)

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import uuid as _uuid
+
 from ..geometry import Rect
 from .charset import CharSet
 
@@ -9,11 +11,8 @@ from .charset import CharSet
 class Shape:
     """Base shape class."""
 
-    _id_counter = 0
-
     def __init__(self) -> None:
-        Shape._id_counter += 1
-        self.id = Shape._id_counter
+        self.id: str = _uuid.uuid4().hex[:8]
 
     @property
     def bound(self) -> Rect:

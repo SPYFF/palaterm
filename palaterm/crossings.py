@@ -81,6 +81,16 @@ CHAR_TO_MASK: dict[str, int] = {
     "╽": _ST | _HB,
     "╿": _HT | _SB,
 
+    # Half-line characters (single direction)
+    "╴": _SL,
+    "╶": _SR,
+    "╵": _ST,
+    "╷": _SB,
+    "╸": _HL,
+    "╺": _HR,
+    "╹": _HT,
+    "╻": _HB,
+
     "┍": _HR | _SB,
     "┎": _SR | _HB,
     "┑": _HL | _SB,

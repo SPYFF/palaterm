@@ -101,15 +101,47 @@ class LineShape(Shape):
         self.end = end
         self.border = border
         self.line_style = line_style
+        self.start_side: str | None = None  # "left"/"right"/"top"/"bottom" or None
+        self.end_side: str | None = None
         self._joint_points: list[Point] = []
         self._recompute()
 
     def _recompute(self) -> None:
         s, e = self.start, self.end
-        self._joint_points = [s]
-        if s.col != e.col and s.row != e.row:
-            self._joint_points.append(Point(e.col, s.row))
-        self._joint_points.append(e)
+        if s.col == e.col or s.row == e.row:
+            # Straight line (single segment)
+            self._joint_points = [s, e]
+            return
+
+        s_horiz = self._side_is_horizontal(self.start_side)
+        e_horiz = self._side_is_horizontal(self.end_side)
+
+        if s_horiz is None and e_horiz is None:
+            # No connection info — default horizontal-first
+            self._joint_points = [s, Point(e.col, s.row), e]
+        elif s_horiz is not None and e_horiz is not None and s_horiz == e_horiz:
+            # Same axis — need Z-shape (2 bends)
+            if s_horiz:  # both horizontal
+                mid_col = (s.col + e.col) // 2
+                self._joint_points = [s, Point(mid_col, s.row), Point(mid_col, e.row), e]
+            else:  # both vertical
+                mid_row = (s.row + e.row) // 2
+                self._joint_points = [s, Point(s.col, mid_row), Point(e.col, mid_row), e]
+        elif s_horiz or (s_horiz is None and not e_horiz):
+            # Start goes horizontal, end goes vertical — L-shape corner at (e.col, s.row)
+            self._joint_points = [s, Point(e.col, s.row), e]
+        else:
+            # Start goes vertical, end goes horizontal — L-shape corner at (s.col, e.row)
+            self._joint_points = [s, Point(s.col, e.row), e]
+
+    @staticmethod
+    def _side_is_horizontal(side: str | None) -> bool | None:
+        """Returns True if the side implies horizontal exit, False for vertical, None if unset."""
+        if side in ("left", "right"):
+            return True
+        if side in ("top", "bottom"):
+            return False
+        return None
 
     @property
     def bound(self) -> Rect:
@@ -219,5 +251,11 @@ class LineShape(Shape):
         if point.col == adjacent.col and point.row == adjacent.row:
             return "*" if charset == CharSet.ASCII else "•"
         if point.row == adjacent.row:
-            return h
-        return v
+            # Horizontal segment — determine direction
+            if self.border == BorderStyle.HEAVY:
+                return "╺" if adjacent.col > point.col else "╸"
+            return "╶" if adjacent.col > point.col else "╴"
+        # Vertical segment — determine direction
+        if self.border == BorderStyle.HEAVY:
+            return "╻" if adjacent.row > point.row else "╹"
+        return "╷" if adjacent.row > point.row else "╵"
