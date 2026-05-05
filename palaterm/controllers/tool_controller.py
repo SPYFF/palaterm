@@ -14,6 +14,7 @@ class ToolController:
         self.line_style = LineStyle.ORTHOGONAL
         self.start_ending = EndingStyle.NONE
         self.end_ending = EndingStyle.NONE
+        self.active_tool_type = ToolType.SELECT
 
     def create_tool(self, tool_type: ToolType):
         match tool_type:

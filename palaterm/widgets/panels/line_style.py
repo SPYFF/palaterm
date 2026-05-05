@@ -1,59 +1,47 @@
-"""Line style picker panel."""
+"""Line style panel using flat Buttons."""
 
 from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.message import Message
-from textual.widgets import Label, Static
+from textual.widgets import Button, Static
 
 from ...shapes import LineStyle
 
-
-class LineStyleButton(Static):
-    """A clickable line style button."""
-
-    class Clicked(Message):
-        def __init__(self, line_style: LineStyle) -> None:
-            super().__init__()
-            self.line_style = line_style
-
-    def __init__(self, label: str, line_style: LineStyle, **kwargs) -> None:
-        super().__init__(label, **kwargs)
-        self.line_style = line_style
-
-    def on_click(self) -> None:
-        self.post_message(self.Clicked(self.line_style))
+_STYLES = [
+    ("⌐ Orthogonal", LineStyle.ORTHOGONAL),
+    ("\\ Straight", LineStyle.STRAIGHT),
+]
 
 
-class LineStyleButtons(Static):
-    """Line style picker: orthogonal vs straight (braille)."""
+class LineStylePanel(Static):
+    """Line style picker: Orthogonal or Straight."""
 
     DEFAULT_CSS = """
-    LineStyleButtons {
+    LineStylePanel Button {
         width: 100%;
-        height: auto;
-        padding: 0 1;
-        display: none;
-    }
-    LineStyleButtons.visible {
-        display: block;
-    }
-    LineStyleButtons .lstyle-btn {
-        width: 100%;
-        height: 1;
-        margin-bottom: 0;
-    }
-    LineStyleButtons .lstyle-btn.active {
-        background: $accent;
-        color: $text;
+        text-align: left;
     }
     """
 
-    def compose(self) -> ComposeResult:
-        yield Label("── Line ──", classes="lstyle-btn")
-        yield LineStyleButton("⌐ Orthogonal", LineStyle.ORTHOGONAL, classes="lstyle-btn active")
-        yield LineStyleButton("⠡ Straight", LineStyle.STRAIGHT, classes="lstyle-btn")
+    class StyleChanged(Message):
+        def __init__(self, style: LineStyle) -> None:
+            super().__init__()
+            self.style = style
 
-    def set_active(self, line_style: LineStyle) -> None:
-        for btn in self.query(LineStyleButton):
-            btn.set_class(btn.line_style == line_style, "active")
+    def __init__(self) -> None:
+        super().__init__(classes="panel")
+
+    def compose(self) -> ComposeResult:
+        for label, style in _STYLES:
+            yield Button(label, id=f"lstyle-{style.name.lower()}", classes="flat")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        for _, style in _STYLES:
+            if event.button.id == f"lstyle-{style.name.lower()}":
+                self.post_message(self.StyleChanged(style))
+                break
+
+    def set_active(self, style: LineStyle) -> None:
+        for btn in self.query(Button):
+            btn.set_class(btn.id == f"lstyle-{style.name.lower()}", "active")

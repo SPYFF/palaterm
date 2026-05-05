@@ -1,24 +1,24 @@
-"""Text alignment grid panel."""
+"""Text alignment grid panel using flat Buttons."""
 
 from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.message import Message
-from textual.widgets import Label, Static
+from textual.widgets import Button, Label, Static
 
 from ...shapes import HAlign, VAlign
 
 _ALIGN_CHARS = [
     ["┌", "─", "┐"],
-    ["│", "●", "│"],
+    ["│", "+", "│"],
     ["└", "─", "┘"],
 ]
 _VALIGNS = [VAlign.TOP, VAlign.MIDDLE, VAlign.BOTTOM]
 _HALIGNS = [HAlign.LEFT, HAlign.CENTER, HAlign.RIGHT]
 
 
-class AlignCell(Static):
-    """A single cell in the alignment grid."""
+class AlignCell(Button):
+    """A flat button tagged with a halign/valign pair."""
 
     class Clicked(Message):
         def __init__(self, halign: HAlign, valign: VAlign) -> None:
@@ -27,55 +27,45 @@ class AlignCell(Static):
             self.valign = valign
 
     def __init__(self, char: str, halign: HAlign, valign: VAlign, **kwargs) -> None:
-        super().__init__(char, **kwargs)
+        super().__init__(char, classes="flat", **kwargs)
         self.halign = halign
         self.valign = valign
 
-    def on_click(self) -> None:
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        event.stop()
         self.post_message(self.Clicked(self.halign, self.valign))
 
 
-class AlignmentGrid(Static):
-    """3x3 alignment picker grid."""
+class TextAlignPanel(Static):
+    """3x3 text alignment picker grid."""
 
     DEFAULT_CSS = """
-    AlignmentGrid {
-        width: 100%;
-        height: auto;
-        padding: 0 1;
-        display: none;
+    TextAlignPanel.visible {
         layout: grid;
         grid-size: 3 4;
         grid-columns: 1fr 1fr 1fr;
     }
-    AlignmentGrid.visible {
-        display: block;
-    }
-    AlignmentGrid .align-label {
+    TextAlignPanel Label.panel-label {
         column-span: 3;
-        width: 100%;
-        height: 1;
     }
-    AlignmentGrid .align-cell {
+    TextAlignPanel AlignCell {
         width: 100%;
-        height: 1;
+        padding: 0;
         content-align: center middle;
-    }
-    AlignmentGrid .align-cell.active {
-        background: $accent;
-        color: $text;
     }
     """
 
+    def __init__(self) -> None:
+        super().__init__(classes="panel")
+
     def compose(self) -> ComposeResult:
-        yield Label("─ Text Align ─", classes="align-label")
+        yield Label("Text align", classes="panel-label")
         for row in range(3):
             for col in range(3):
                 yield AlignCell(
                     _ALIGN_CHARS[row][col],
                     _HALIGNS[col],
                     _VALIGNS[row],
-                    classes="align-cell",
                 )
 
     def set_active(self, halign: HAlign, valign: VAlign) -> None:

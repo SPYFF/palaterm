@@ -15,10 +15,9 @@ from .serialization import load_canvas, save_canvas
 from .shapes import CharSet, EndingStyle, HAlign, LineShape, LineStyle, RectangleShape, TextShape, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, ToolType
 from .widgets import (
-    AlignCell, AlignmentGrid, CanvasWidget, CharsetButton, CharsetButtons,
-    EndingButton, FilePathModal, LayerButton, LayerButtons,
-    LineEndingsPanel, LineStyleButton, LineStyleButtons, OptionButton, ShapeAlignButtons,
-    ShapeAlignCell, StatusBar, StyleButton, StyleButtons, ToolButton, Toolbar, ToolOptions,
+    AlignCell, BorderStylePanel, CanvasWidget, EndingButton,
+    FilePathModal, LayerPanel, LineEndingsPanel, LineStylePanel,
+    SelectModePanel, ShapeAlignPanel, StatusBar, TextAlignPanel, ToolPicker,
 )
 
 
@@ -68,15 +67,47 @@ class PalatermApp(App):
         layout: horizontal;
     }
     #sidebar {
-        width: 14;
+        width: 24;
         height: 100%;
         border-right: solid $accent;
+    }
+    #sidebar > * {
+        margin-bottom: 1;
+    }
+    .panel {
+        width: 100%;
+        height: auto;
+        display: none;
+    }
+    .panel.visible {
+        display: block;
+    }
+    .panel-label {
+        height: 1;
+        padding: 0 1;
+        text-style: dim;
+    }
+    Button.flat {
+        min-width: 1;
+        height: 1;
+        border: none;
+        padding: 0 1;
+        background: transparent;
+        color: $text;
+        text-style: none;
+    }
+    Button.flat:hover {
+        background: $surface;
+    }
+    Button.flat.active {
+        background: $accent;
+        color: $text;
     }
     """
 
     BINDINGS = [
         Binding("s", "set_tool('select')", "Select", priority=True),
-        Binding("r", "set_tool('rect')", "Rectangle", priority=True),
+        Binding("b", "set_tool('rect')", "Box", priority=True),
         Binding("t", "set_tool('text')", "Text", priority=True),
         Binding("l", "set_tool('line')", "Line", priority=True),
         Binding("delete", "delete_shape", "Delete", priority=True),
@@ -110,30 +141,27 @@ class PalatermApp(App):
 
     def compose(self) -> ComposeResult:
         with Vertical(id="sidebar"):
-            yield Toolbar()
-            yield ToolOptions()
-            yield StyleButtons()
-            yield LineStyleButtons()
+            yield ToolPicker()
+            yield SelectModePanel()
+            yield BorderStylePanel()
+            yield LineStylePanel()
             yield LineEndingsPanel()
-            yield AlignmentGrid()
-            yield ShapeAlignButtons()
-            yield LayerButtons()
-            yield CharsetButtons()
+            yield TextAlignPanel()
+            yield ShapeAlignPanel()
+            yield LayerPanel()
         yield CanvasWidget()
         yield StatusBar()
 
     def on_mount(self) -> None:
         self._panel_ctrl = PanelController(self.query_one)
         self._canvas_widget = self.query_one(CanvasWidget)
-        self._toolbar = self.query_one(Toolbar)
         self._status_bar = self.query_one(StatusBar)
-        self._charset_buttons = self.query_one(CharsetButtons)
 
     @property
     def canvas_widget(self) -> CanvasWidget:
         return self._canvas_widget
 
-    # --- Event handlers ---
+    # --- Event handlers (mutate model only, then _update_panels) ---
 
     def on_canvas_widget_shape_created(self, event: CanvasWidget.ShapeCreated) -> None:
         cmd = AddShape(self.canvas_widget.canvas, event.shape)
@@ -141,7 +169,6 @@ class PalatermApp(App):
         self.history._redo.clear()
 
     def on_canvas_widget_shape_moved(self, event: CanvasWidget.ShapeMoved) -> None:
-        # Shape already moved by tool; record for undo (reverse the move on undo)
         cmd = MoveShapes(event.shapes, event.dcol, event.drow, self.canvas_widget.canvas)
         self.history._undo.append(cmd)
         self.history._redo.clear()
@@ -151,54 +178,46 @@ class PalatermApp(App):
         self.history._undo.append(cmd)
         self.history._redo.clear()
 
-    def on_tool_button_selected(self, event: ToolButton.Selected) -> None:
+    def on_tool_picker_tool_selected(self, event: ToolPicker.ToolSelected) -> None:
         self._switch_tool(event.tool_type)
 
-    def on_option_button_clicked(self, event: OptionButton.Clicked) -> None:
+    def on_select_mode_panel_mode_changed(self, event: SelectModePanel.ModeChanged) -> None:
         tool = self.canvas_widget.tool
         if isinstance(tool, SelectTool):
-            tool.mode = SelectMode.FULL if event.option_id == "full" else SelectMode.PARTIAL
-            self.query_one(ToolOptions).set_mode(tool.mode)
-            self._update_status()
+            tool.mode = event.mode
+        self._update_panels()
 
-    def on_style_button_clicked(self, event: StyleButton.Clicked) -> None:
+    def on_border_style_panel_style_changed(self, event: BorderStylePanel.StyleChanged) -> None:
         self._tool_ctrl.border_style = event.style
-        self.query_one(StyleButtons).set_active(event.style)
         cw = self.canvas_widget
         tool = cw.tool
         if isinstance(tool, (RectangleTool, LineTool)):
             tool.border_style = event.style
         elif isinstance(tool, SelectTool):
             for shape in tool.selected:
-                if isinstance(shape, (RectangleShape, TextShape)):
-                    shape.border = event.style
-                elif hasattr(shape, "border"):
+                if hasattr(shape, "border"):
                     shape.border = event.style
             cw.refresh()
+        self._update_panels()
 
-    def on_charset_button_clicked(self, event: CharsetButton.Clicked) -> None:
-        self._set_charset(event.charset)
-
-    def on_line_style_button_clicked(self, event: LineStyleButton.Clicked) -> None:
-        self._tool_ctrl.line_style = event.line_style
-        self.query_one(LineStyleButtons).set_active(event.line_style)
+    def on_line_style_panel_style_changed(self, event: LineStylePanel.StyleChanged) -> None:
+        self._tool_ctrl.line_style = event.style
         cw = self.canvas_widget
         tool = cw.tool
         if isinstance(tool, LineTool):
-            tool.line_style = event.line_style
+            tool.line_style = event.style
         elif isinstance(tool, SelectTool):
             for shape in tool.selected:
                 if isinstance(shape, LineShape):
-                    shape.line_style = event.line_style
+                    shape.line_style = event.style
             cw.refresh()
+        self._update_panels()
 
     def on_ending_button_clicked(self, event: EndingButton.Clicked) -> None:
         if event.endpoint == "start":
             self._tool_ctrl.start_ending = event.ending
         else:
             self._tool_ctrl.end_ending = event.ending
-        self.query_one(LineEndingsPanel).set_active(
-            self._tool_ctrl.start_ending, self._tool_ctrl.end_ending)
         cw = self.canvas_widget
         tool = cw.tool
         if isinstance(tool, LineTool):
@@ -212,6 +231,7 @@ class PalatermApp(App):
                     else:
                         shape.end_ending = event.ending
             cw.refresh()
+        self._update_panels()
 
     def on_align_cell_clicked(self, event: AlignCell.Clicked) -> None:
         cw = self.canvas_widget
@@ -221,11 +241,10 @@ class PalatermApp(App):
             if isinstance(shape, TextShape):
                 shape.halign = event.halign
                 shape.valign = event.valign
-        self.query_one(AlignmentGrid).set_active(event.halign, event.valign)
         cw.refresh()
-        self._update_status()
+        self._update_panels()
 
-    def on_shape_align_cell_clicked(self, event: ShapeAlignCell.Clicked) -> None:
+    def on_shape_align_panel_align_clicked(self, event: ShapeAlignPanel.AlignClicked) -> None:
         cw = self.canvas_widget
         if not isinstance(cw.tool, SelectTool) or len(cw.tool.selected) < 2:
             return
@@ -260,8 +279,11 @@ class PalatermApp(App):
                     s.move(0, target - b.bottom)
         cw.refresh()
 
-    def on_layer_button_clicked(self, event: LayerButton.Clicked) -> None:
+    def on_layer_panel_layer_action(self, event: LayerPanel.LayerAction) -> None:
         self.action_layer(event.action)
+
+    def on_status_bar_charset_changed(self, event: StatusBar.CharsetChanged) -> None:
+        self._set_charset(event.charset)
 
     def on_mouse_up(self, event: MouseUp) -> None:
         self._update_status()
@@ -276,7 +298,7 @@ class PalatermApp(App):
         cw = self.canvas_widget
         if cw._editing:
             return
-        self._toolbar.active_tool = tool_type
+        self._tool_ctrl.active_tool_type = tool_type
         cw.tool = self._tool_ctrl.create_tool(tool_type)
         self._update_panels()
         self._update_status()
@@ -337,7 +359,8 @@ class PalatermApp(App):
         if cw.charset == charset:
             return
         cw.charset = charset
-        self._charset_buttons.set_active(charset)
+        self._status_bar.set_charset(charset)
+        self.query_one(LineEndingsPanel).set_charset(charset)
         cw.refresh()
         self._update_status()
 
@@ -372,7 +395,8 @@ class PalatermApp(App):
             cw.canvas = canvas
             cw._renderer.canvas = canvas
             cw.charset = charset
-            self._charset_buttons.set_active(charset)
+            self._status_bar.set_charset(charset)
+            self.query_one(LineEndingsPanel).set_charset(charset)
             if isinstance(cw.tool, SelectTool):
                 cw.tool.selected = []
             self._file_path = path
@@ -405,7 +429,7 @@ class PalatermApp(App):
             if isinstance(shape, TextShape):
                 shape.halign = cycle[(cycle.index(shape.halign) + 1) % 3]
         cw.refresh()
-        self._update_status()
+        self._update_panels()
 
     def action_cycle_valign(self) -> None:
         cw = self.canvas_widget
@@ -416,7 +440,7 @@ class PalatermApp(App):
             if isinstance(shape, TextShape):
                 shape.valign = cycle[(cycle.index(shape.valign) + 1) % 3]
         cw.refresh()
-        self._update_status()
+        self._update_panels()
 
     def action_undo(self) -> None:
         if self.history.undo():
@@ -433,11 +457,7 @@ class PalatermApp(App):
     def _update_panels(self) -> None:
         if self._panel_ctrl:
             try:
-                self._panel_ctrl.update(
-                    self.canvas_widget.tool,
-                    self._tool_ctrl.border_style,
-                    self._tool_ctrl.line_style,
-                )
+                self._panel_ctrl.update(self.canvas_widget.tool, self._tool_ctrl)
             except Exception:
                 pass
 
@@ -447,8 +467,7 @@ class PalatermApp(App):
         except Exception:
             return
 
-        # --- Left zone: tool + tool-specific context ---
-        tool_name = self._toolbar.active_tool.name.capitalize()
+        tool_name = self._tool_ctrl.active_tool_type.name.capitalize()
         left = f"Tool: {tool_name}"
         if isinstance(cw.tool, SelectTool):
             mode = "Full" if cw.tool.mode == SelectMode.FULL else "Partial"
@@ -458,7 +477,6 @@ class PalatermApp(App):
         elif cw._editing:
             left += " [Editing]"
 
-        # --- Center zone: dimensions / selection bounds / move delta ---
         center = ""
         from .tools import DrawTool
         if isinstance(cw.tool, DrawTool) and cw.tool._start and cw.tool._shape:
@@ -466,10 +484,7 @@ class PalatermApp(App):
             s = cw.tool._start
             center = f"{s.col},{s.row} → {b.right},{b.bottom} ({b.width}×{b.height})"
         elif isinstance(cw.tool, SelectTool):
-            if cw.tool._moving and cw._move_start and cw.tool._drag_start:
-                # During move — but _drag_start resets each frame, use canvas _move_start
-                pass
-            elif cw.tool.selected:
+            if cw.tool.selected:
                 bounds = [s.bound for s in cw.tool.selected]
                 left_b = min(b.left for b in bounds)
                 top_b = min(b.top for b in bounds)
@@ -479,7 +494,6 @@ class PalatermApp(App):
                 h = bottom_b - top_b + 1
                 center = f"{left_b},{top_b} ({w}×{h})"
 
-        # --- Right zone: filename + dirty + charset + shape count ---
         from pathlib import Path
         charset_indicator = "U" if cw.charset == CharSet.UNICODE else "A"
         count = len(cw.canvas.shapes)

@@ -3,14 +3,17 @@
 from .canvas import CanvasWidget
 from .modals import FilePathModal, TextEditModal
 from .status_bar import StatusBar
-from .toolbar import (
-    AlignCell, AlignmentGrid,
-    CharsetButton, CharsetButtons,
-    EndingButton, LineEndingsPanel,
-    LayerButton, LayerButtons,
-    LineStyleButton, LineStyleButtons,
-    OptionButton, ShapeAlignButtons, ShapeAlignCell, StyleButton, StyleButtons,
-    ToolButton, Toolbar, ToolOptions,
+from .panels import (
+    AlignCell,
+    BorderStylePanel,
+    EndingButton,
+    LayerPanel,
+    LineEndingsPanel,
+    LineStylePanel,
+    SelectModePanel,
+    ShapeAlignPanel,
+    TextAlignPanel,
+    ToolPicker,
 )
 
 __all__ = [
@@ -18,12 +21,12 @@ __all__ = [
     "FilePathModal",
     "StatusBar",
     "TextEditModal",
-    "Toolbar", "ToolButton", "ToolOptions", "OptionButton",
-    "LayerButton", "LayerButtons",
-    "StyleButton", "StyleButtons",
-    "LineStyleButton", "LineStyleButtons",
-    "EndingButton", "LineEndingsPanel",
-    "AlignCell", "AlignmentGrid",
-    "ShapeAlignCell", "ShapeAlignButtons",
-    "CharsetButton", "CharsetButtons",
+    "ToolPicker",
+    "SelectModePanel",
+    "BorderStylePanel",
+    "LineStylePanel",
+    "LineEndingsPanel", "EndingButton",
+    "TextAlignPanel", "AlignCell",
+    "ShapeAlignPanel",
+    "LayerPanel",
 ]

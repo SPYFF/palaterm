@@ -1,23 +1,21 @@
 """Sidebar panel widgets."""
 
-from .toolbar import Toolbar, ToolButton
-from .tool_options import ToolOptions, OptionButton
-from .border_style import StyleButtons, StyleButton
-from .line_style import LineStyleButtons, LineStyleButton
+from .tool_picker import ToolPicker
+from .select_mode import SelectModePanel
+from .border_style import BorderStylePanel
+from .line_style import LineStylePanel
 from .line_endings import LineEndingsPanel, EndingButton
-from .text_align import AlignmentGrid, AlignCell
-from .shape_align import ShapeAlignButtons, ShapeAlignCell
-from .layer import LayerButtons, LayerButton
-from .charset import CharsetButtons, CharsetButton
+from .text_align import TextAlignPanel, AlignCell
+from .shape_align import ShapeAlignPanel
+from .layer import LayerPanel
 
 __all__ = [
-    "Toolbar", "ToolButton",
-    "ToolOptions", "OptionButton",
-    "StyleButtons", "StyleButton",
-    "LineStyleButtons", "LineStyleButton",
+    "ToolPicker",
+    "SelectModePanel",
+    "BorderStylePanel",
+    "LineStylePanel",
     "LineEndingsPanel", "EndingButton",
-    "AlignmentGrid", "AlignCell",
-    "ShapeAlignButtons", "ShapeAlignCell",
-    "LayerButtons", "LayerButton",
-    "CharsetButtons", "CharsetButton",
+    "TextAlignPanel", "AlignCell",
+    "ShapeAlignPanel",
+    "LayerPanel",
 ]

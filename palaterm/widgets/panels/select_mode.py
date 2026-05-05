@@ -1,0 +1,49 @@
+"""Select mode panel (Full/Partial) using flat Buttons."""
+
+from __future__ import annotations
+
+from textual.app import ComposeResult
+from textual.containers import Horizontal
+from textual.message import Message
+from textual.widgets import Button, Static
+
+from ...tools import SelectMode
+
+
+class SelectModePanel(Static):
+    """Select mode picker: Full or Partial."""
+
+    DEFAULT_CSS = """
+    SelectModePanel Horizontal {
+        width: 100%;
+        height: 1;
+    }
+    SelectModePanel Button {
+        width: 1fr;
+    }
+    """
+
+    class ModeChanged(Message):
+        def __init__(self, mode: SelectMode) -> None:
+            super().__init__()
+            self.mode = mode
+
+    def __init__(self) -> None:
+        super().__init__(classes="panel")
+
+    def compose(self) -> ComposeResult:
+        with Horizontal():
+            yield Button("Full", id="mode-full", classes="flat")
+            yield Button("Partial", id="mode-partial", classes="flat")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        mode = SelectMode.FULL if event.button.id == "mode-full" else SelectMode.PARTIAL
+        self.post_message(self.ModeChanged(mode))
+
+    def set_active(self, mode: SelectMode) -> None:
+        for btn in self.query(Button):
+            is_active = (
+                (btn.id == "mode-full" and mode == SelectMode.FULL) or
+                (btn.id == "mode-partial" and mode == SelectMode.PARTIAL)
+            )
+            btn.set_class(is_active, "active")

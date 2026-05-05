@@ -1,51 +1,52 @@
-"""Layer reordering panel."""
+"""Layer reordering panel using flat Buttons."""
 
 from __future__ import annotations
 
 from textual.app import ComposeResult
+from textual.containers import Horizontal
 from textual.message import Message
-from textual.widgets import Label, Static
+from textual.widgets import Button, Label, Static
+
+_LAYER_ACTIONS = [
+    ("⤒", "bring_to_front"),
+    ("↑", "bring_forward"),
+    ("↓", "send_backward"),
+    ("⤓", "send_to_back"),
+]
 
 
-class LayerButton(Static):
-    """A clickable layer action button."""
+class LayerPanel(Static):
+    """Layer reordering buttons, anchored to bottom."""
 
-    class Clicked(Message):
+    DEFAULT_CSS = """
+    LayerPanel {
+        dock: bottom;
+    }
+    LayerPanel Horizontal {
+        width: 100%;
+        height: 1;
+    }
+    LayerPanel Button {
+        width: 1fr;
+        padding: 0;
+    }
+    """
+
+    class LayerAction(Message):
         def __init__(self, action: str) -> None:
             super().__init__()
             self.action = action
 
-    def __init__(self, label: str, action: str, **kwargs) -> None:
-        super().__init__(label, **kwargs)
-        self.action = action
-
-    def on_click(self) -> None:
-        self.post_message(self.Clicked(self.action))
-
-
-class LayerButtons(Static):
-    """Layer reordering buttons, visible only when select tool has a selection."""
-
-    DEFAULT_CSS = """
-    LayerButtons {
-        width: 100%;
-        height: auto;
-        padding: 0 1;
-        display: none;
-    }
-    LayerButtons.visible {
-        display: block;
-    }
-    LayerButtons .layer-btn {
-        width: 100%;
-        height: 1;
-        margin-bottom: 0;
-    }
-    """
+    def __init__(self) -> None:
+        super().__init__(classes="panel")
 
     def compose(self) -> ComposeResult:
-        yield Label("── Layer ──", classes="layer-btn")
-        yield LayerButton("⤒ Front", "bring_to_front", classes="layer-btn")
-        yield LayerButton("↑ Forward", "bring_forward", classes="layer-btn")
-        yield LayerButton("↓ Backward", "send_backward", classes="layer-btn")
-        yield LayerButton("⤓ Back", "send_to_back", classes="layer-btn")
+        yield Label("Layer", classes="panel-label")
+        with Horizontal():
+            for icon, action in _LAYER_ACTIONS:
+                yield Button(icon, id=f"layer-{action}", classes="flat")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        action = event.button.id
+        if action and action.startswith("layer-"):
+            self.post_message(self.LayerAction(action[6:]))

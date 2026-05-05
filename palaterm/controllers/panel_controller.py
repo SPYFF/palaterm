@@ -1,78 +1,84 @@
-"""Centralized panel visibility controller."""
+"""Centralized panel visibility and state controller."""
 
 from __future__ import annotations
 
-from ..shapes import EndingStyle, LineShape, LineStyle, TextShape
+from ..models.enums import EndingStyle
+from ..shapes import LineShape, LineStyle, TextShape
 from ..tools import LineTool, RectangleTool, SelectTool
-from ..widgets import (
-    AlignmentGrid, LayerButtons, LineEndingsPanel, LineStyleButtons,
-    ShapeAlignButtons, StyleButtons, ToolOptions,
+from ..widgets.panels import (
+    BorderStylePanel, LayerPanel, LineEndingsPanel, LineStylePanel,
+    SelectModePanel, ShapeAlignPanel, TextAlignPanel, ToolPicker,
 )
 
 
 class PanelController:
-    """Manages sidebar panel visibility based on tool and selection state."""
+    """Single source of truth for all panel visibility and active state."""
 
     def __init__(self, query_one) -> None:
         self._q = query_one
 
-    def update(self, tool, border_style, line_style) -> None:
+    def update(self, tool, tool_ctrl) -> None:
+        """Update all panels based on current tool and selection state."""
         is_select = isinstance(tool, SelectTool)
         selected = tool.selected if is_select else []
 
-        # ToolOptions: only for select tool
-        self._q(ToolOptions).set_class(is_select, "visible")
+        # Tool picker: always visible, sync active state
+        self._q(ToolPicker).set_active(tool_ctrl.active_tool_type)
 
-        # StyleButtons: for rect/line tools, or select with bordered shapes
-        show_styles = isinstance(tool, (RectangleTool, LineTool))
+        # Select mode: only for select tool
+        mode_panel = self._q(SelectModePanel)
+        mode_panel.set_class(is_select, "visible")
         if is_select:
-            show_styles = any(hasattr(s, "border") for s in selected)
-        styles_widget = self._q(StyleButtons)
-        styles_widget.set_class(show_styles, "visible")
-        if show_styles:
+            mode_panel.set_active(tool.mode)
+
+        # Border style: rect/line tool, or select with bordered shapes
+        show_border = isinstance(tool, (RectangleTool, LineTool))
+        if is_select:
+            show_border = any(hasattr(s, "border") for s in selected)
+        border_panel = self._q(BorderStylePanel)
+        border_panel.set_class(show_border, "visible")
+        if show_border:
             if isinstance(tool, (RectangleTool, LineTool)):
-                styles_widget.set_active(border_style)
+                border_panel.set_active(tool_ctrl.border_style)
             elif is_select:
                 borders = [s.border for s in selected if hasattr(s, "border")]
                 if borders and all(b == borders[0] for b in borders):
-                    styles_widget.set_active(borders[0])
-                else:
-                    styles_widget.set_active(None)
+                    border_panel.set_active(borders[0])
 
-        # AlignmentGrid: only for select with TextShape selected
-        text_shapes = [s for s in selected if isinstance(s, TextShape)]
-        align_widget = self._q(AlignmentGrid)
-        align_widget.set_class(bool(text_shapes), "visible")
-        if text_shapes:
-            align_widget.set_active(text_shapes[0].halign, text_shapes[0].valign)
-
-        # LineStyleButtons: Line tool active, or select with LineShape selected
-        show_line_style = isinstance(tool, LineTool)
+        # Line style: line tool or select with LineShape
+        show_line = isinstance(tool, LineTool)
         if is_select:
-            show_line_style = any(isinstance(s, LineShape) for s in selected)
-        ls_widget = self._q(LineStyleButtons)
-        ls_widget.set_class(show_line_style, "visible")
-        if show_line_style:
+            show_line = any(isinstance(s, LineShape) for s in selected)
+        line_panel = self._q(LineStylePanel)
+        line_panel.set_class(show_line, "visible")
+        if show_line:
             if isinstance(tool, LineTool):
-                ls_widget.set_active(line_style)
+                line_panel.set_active(tool_ctrl.line_style)
             elif is_select:
                 styles = [s.line_style for s in selected if isinstance(s, LineShape)]
                 if styles:
-                    ls_widget.set_active(styles[0])
+                    line_panel.set_active(styles[0])
 
-        # LineEndingsPanel: Line tool active, or select with LineShape selected
-        endings_widget = self._q(LineEndingsPanel)
-        endings_widget.set_class(show_line_style, "visible")
-        if show_line_style:
+        # Line endings: same visibility as line style
+        endings_panel = self._q(LineEndingsPanel)
+        endings_panel.set_class(show_line, "visible")
+        if show_line:
             if isinstance(tool, LineTool):
-                endings_widget.set_active(tool.start_ending, tool.end_ending)
+                endings_panel.set_active(tool_ctrl.start_ending, tool_ctrl.end_ending)
             elif is_select:
                 lines = [s for s in selected if isinstance(s, LineShape)]
                 if lines:
-                    endings_widget.set_active(lines[0].start_ending, lines[0].end_ending)
+                    endings_panel.set_active(lines[0].start_ending, lines[0].end_ending)
 
-        # ShapeAlignButtons: select tool with 2+ shapes selected
-        self._q(ShapeAlignButtons).set_class(len(selected) >= 2, "visible")
+        # Text alignment: select with TextShape
+        text_shapes = [s for s in selected if isinstance(s, TextShape)]
+        text_panel = self._q(TextAlignPanel)
+        text_panel.set_class(bool(text_shapes), "visible")
+        if text_shapes:
+            text_panel.set_active(text_shapes[0].halign, text_shapes[0].valign)
 
-        # LayerButtons: select tool with any selection
-        self._q(LayerButtons).set_class(bool(selected), "visible")
+        # Shape align: select with 2+ shapes
+        self._q(ShapeAlignPanel).set_class(len(selected) >= 2, "visible")
+
+        # Layer: select with any selection
+        self._q(LayerPanel).set_class(bool(selected), "visible")
