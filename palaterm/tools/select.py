@@ -30,8 +30,9 @@ class SelectTool:
         self._rect_selecting: bool = False
         self.selection_rect: Rect | None = None
         self.snap_target: object | None = None  # SnapResult during line handle drag
+        self._modifier: str = "none"  # "none" | "add" | "remove"
 
-    def on_mouse_down(self, col: int, row: int, canvas) -> Shape | None:
+    def on_mouse_down(self, col: int, row: int, canvas, *, ctrl: bool = False, alt: bool = False) -> Shape | None:
         from . import handle_at, Handle
 
         # Check if clicking on a handle of a selected shape
@@ -42,7 +43,15 @@ class SelectTool:
                 return shape
 
         hit = canvas.shape_at(col, row)
-        if hit and hit in self.selected:
+        if hit and ctrl:
+            if hit not in self.selected:
+                self.selected.append(hit)
+            return hit
+        elif hit and alt:
+            if hit in self.selected:
+                self.selected.remove(hit)
+            return None
+        elif hit and hit in self.selected:
             self._drag_start = Point(col, row)
             self._moving = True
             self._rect_selecting = False
@@ -54,11 +63,13 @@ class SelectTool:
             self._rect_selecting = False
             self._resizing = False
         else:
-            self.selected = []
+            if not ctrl and not alt:
+                self.selected = []
             self._drag_start = Point(col, row)
             self._moving = False
             self._resizing = False
             self._rect_selecting = True
+            self._modifier = "add" if ctrl else "remove" if alt else "none"
             self.selection_rect = None
         return self.selected[0] if self.selected else None
 
@@ -159,7 +170,7 @@ class SelectTool:
                     return
             shape.resize(new_rect)
 
-    def on_mouse_up(self, col: int, row: int, canvas) -> Shape | None:
+    def on_mouse_up(self, col: int, row: int, canvas, *, ctrl: bool = False, alt: bool = False) -> Shape | None:
         if self._resizing:
             self._apply_resize(col, row, canvas)
             # Commit connector for line handle
@@ -178,9 +189,19 @@ class SelectTool:
             rect = Rect.from_points(self._drag_start, Point(col, row))
             if rect.width > 1 or rect.height > 1:
                 if self.mode == SelectMode.FULL:
-                    self.selected = canvas.shapes_fully_in(rect)
+                    shapes = canvas.shapes_fully_in(rect)
                 else:
-                    self.selected = canvas.shapes_partially_in(rect)
+                    shapes = canvas.shapes_partially_in(rect)
+                if ctrl:
+                    for s in shapes:
+                        if s not in self.selected:
+                            self.selected.append(s)
+                elif alt:
+                    for s in shapes:
+                        if s in self.selected:
+                            self.selected.remove(s)
+                else:
+                    self.selected = shapes
         self._moving = False
         self._resizing = False
         self._resize_handle = None
@@ -189,4 +210,5 @@ class SelectTool:
         self._rect_selecting = False
         self._drag_start = None
         self.selection_rect = None
+        self._modifier = "none"
         return self.selected[0] if self.selected else None

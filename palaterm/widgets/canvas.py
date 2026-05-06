@@ -111,7 +111,10 @@ class CanvasWidget(Widget, can_focus=True):
         self.capture_mouse()
         self._mouse_down = True
         self._move_start = Point(col, row)
-        self.tool.on_mouse_down(col, row, self.canvas)
+        if isinstance(self.tool, SelectTool):
+            self.tool.on_mouse_down(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta)
+        else:
+            self.tool.on_mouse_down(col, row, self.canvas)
         if isinstance(self.tool, SelectTool) and self.tool._resizing and self.tool._resize_shape:
             shape = self.tool._resize_shape
             if isinstance(shape, LineShape):
@@ -143,7 +146,10 @@ class CanvasWidget(Widget, can_focus=True):
         was_moving = (isinstance(self.tool, SelectTool) and
                       self.tool._moving and self.tool.selected and self._move_start)
         was_resizing = (isinstance(self.tool, SelectTool) and self.tool._resizing)
-        result = self.tool.on_mouse_up(col, row, self.canvas)
+        if isinstance(self.tool, SelectTool):
+            result = self.tool.on_mouse_up(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta)
+        else:
+            result = self.tool.on_mouse_up(col, row, self.canvas)
         if isinstance(self.tool, TextTool) and isinstance(result, TextShape):
             self.open_text_editor(result)
         elif result and not isinstance(self.tool, SelectTool):

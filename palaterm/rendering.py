@@ -17,6 +17,8 @@ from .tools import DrawTool, LineTool, SelectTool, get_handles
 # them with bg=None makes the terminal fall back to its default background,
 # which differs from the canvas's themed bg and produces a visible color bleed.
 _FG_CYAN = RichStyle(color="cyan")
+_FG_GREEN = RichStyle(color="green")
+_FG_RED = RichStyle(color="red")
 _FG_MAGENTA = RichStyle(color="bright_magenta")
 _FG_SNAP = RichStyle(color="green", bold=True)
 _FG_HIGHLIGHT = {
@@ -116,16 +118,35 @@ class FrameRenderer:
         snap_style = base_style + _FG_SNAP
         highlight_styles = {k: base_style + v for k, v in _FG_HIGHLIGHT.items()}
 
+        # Selection rect color based on modifier
+        sel_modifier = ""
+        sel_drag_start: tuple[int, int] | None = None
+        if isinstance(tool, SelectTool):
+            sel_modifier = tool._modifier
+            if tool._drag_start:
+                sel_drag_start = (tool._drag_start.col, tool._drag_start.row)
+        if sel_modifier == "add":
+            sel_style = base_style + _FG_GREEN
+        elif sel_modifier == "remove":
+            sel_style = base_style + _FG_RED
+        else:
+            sel_style = cyan_style
+
         segments: list[Segment] = []
         for x in range(width):
             col = x + scroll_col
             pos = (col, row)
             ch = cells.get(pos, " ")
 
+            if sel_drag_start and pos == sel_drag_start and (sel_braille or sel_rect):
+                sign = "+" if sel_modifier == "add" else "−" if sel_modifier == "remove" else ""
+                if sign:
+                    segments.append(Segment(sign, sel_style))
+                    continue
             if pos in sel_braille:
-                segments.append(Segment(sel_braille[pos], cyan_style))
+                segments.append(Segment(sel_braille[pos], sel_style))
             elif sel_rect and sel_rect.contains(col, row):
-                segments.append(Segment(ch, cyan_style))
+                segments.append(Segment(ch, sel_style))
             elif pos in handle_cells:
                 handle_ch = "*" if charset == CharSet.ASCII else "◆"
                 segments.append(Segment(handle_ch, magenta_style))
