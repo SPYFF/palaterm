@@ -98,6 +98,10 @@ class PalatermApp(App):
         text-style: dim;
         text-align: center;
     }
+    #sidebar Button.active {
+        background: $surface-darken-1;
+        text-style: bold;
+    }
     """
 
     BINDINGS = [
@@ -278,6 +282,7 @@ class PalatermApp(App):
         self._set_charset(event.charset)
 
     def on_mouse_up(self, event: MouseUp) -> None:
+        self._update_panels()
         self._update_status()
 
     def on_mouse_move(self, event) -> None:

@@ -42,7 +42,7 @@ class StatusBar(Widget):
         width: auto;
     }
     StatusBar Button.active {
-        background: $surface;
+        background: $surface-darken-1;
         text-style: bold;
     }
     """
