@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 from textual.message import Message
 from textual.widgets import Button, Label, Static
 
-from ...shapes import HAlign, VAlign
+from ...models import HAlign, VAlign
 
 _ALIGN_CHARS = [
     ["┌", "─", "┐"],

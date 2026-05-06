@@ -7,7 +7,7 @@ from textual.containers import Horizontal, Vertical
 from textual.message import Message
 from textual.widgets import Button, Label
 
-from ...shapes import BorderStyle
+from ...models import BorderStyle
 
 _STYLES = [
     ("┌", BorderStyle.LIGHT),

@@ -1,14 +1,69 @@
-"""Concrete shape commands for undo/redo."""
+"""Command pattern for undoable operations."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Protocol
 
-from ..canvas import Canvas
-from ..connectors import Anchor, Connector, point_on_edge
-from ..models.base import Shape
-from ..models.line import LineShape
-from ..geometry import Point
+from .canvas import Canvas
+from .connectors import Anchor, Connector, point_on_edge
+from .geometry import Point
+from .models.base import Shape
+from .models.line import LineShape
+
+
+class Command(Protocol):
+    def execute(self) -> None: ...
+    def undo(self) -> None: ...
+
+
+class CommandHistory:
+    """Manages undo/redo stacks."""
+
+    def __init__(self) -> None:
+        self._undo: list[Command] = []
+        self._redo: list[Command] = []
+        self._save_point: int = 0
+
+    def mark_saved(self) -> None:
+        self._save_point = len(self._undo)
+
+    @property
+    def is_dirty(self) -> bool:
+        return len(self._undo) != self._save_point
+
+    def push(self, cmd: Command) -> None:
+        """Record a command that was already executed."""
+        self._undo.append(cmd)
+        self._redo.clear()
+
+    def execute(self, cmd: Command) -> None:
+        cmd.execute()
+        self._undo.append(cmd)
+        self._redo.clear()
+
+    def undo(self) -> bool:
+        if not self._undo:
+            return False
+        cmd = self._undo.pop()
+        cmd.undo()
+        self._redo.append(cmd)
+        return True
+
+    def redo(self) -> bool:
+        if not self._redo:
+            return False
+        cmd = self._redo.pop()
+        cmd.execute()
+        self._undo.append(cmd)
+        return True
+
+    @property
+    def can_undo(self) -> bool:
+        return bool(self._undo)
+
+    @property
+    def can_redo(self) -> bool:
+        return bool(self._redo)
 
 
 class AddShape:
@@ -35,9 +90,7 @@ class RemoveShapes:
         self._indices = [(self._canvas.shapes.index(s), s) for s in self._shapes if s in self._canvas.shapes]
         self._removed_connectors = []
         for s in self._shapes:
-            # Remove connectors targeting this shape
             self._removed_connectors.extend(self._canvas.connector_mgr.remove_by_target(s.id))
-            # Remove connectors from this line
             if isinstance(s, LineShape):
                 self._removed_connectors.extend(self._canvas.connector_mgr.remove_by_line(s.id))
             self._canvas.shapes = [x for x in self._canvas.shapes if x.id != s.id]
@@ -55,21 +108,18 @@ class MoveShapes:
         self._dcol = dcol
         self._drow = drow
         self._canvas = canvas
-        # Store line endpoint moves for undo
-        self._line_moves: list[tuple[str, str, Point, Point]] = []  # (line_id, "start"/"end", old_pt, new_pt)
+        self._line_moves: list[tuple[str, str, Point, Point]] = []
         if canvas:
             self._record_line_moves()
 
     def _record_line_moves(self) -> None:
-        """Record connected line endpoint positions that were moved during the drag."""
         if not self._canvas:
             return
         moved_ids = {s.id for s in self._shapes}
         for shape in self._shapes:
             for conn in self._canvas.connector_mgr.get_by_target(shape.id):
                 if conn.line_id in moved_ids:
-                    continue  # line is also being moved, no separate propagation
-                # Find the line
+                    continue
                 line = next((s for s in self._canvas.shapes if s.id == conn.line_id), None)
                 if not isinstance(line, LineShape):
                     continue
@@ -81,7 +131,6 @@ class MoveShapes:
                     self._line_moves.append((line.id, "end", old_pt, line.end))
 
     def execute(self) -> None:
-        # Shapes already moved by tool; this is for redo
         for s in self._shapes:
             s.move(self._dcol, self._drow)
         if self._canvas:
@@ -90,7 +139,6 @@ class MoveShapes:
     def undo(self) -> None:
         for s in self._shapes:
             s.move(-self._dcol, -self._drow)
-        # Reverse line endpoint moves
         if self._canvas:
             for line_id, endpoint, old_pt, new_pt in self._line_moves:
                 line = next((s for s in self._canvas.shapes if s.id == line_id), None)
@@ -103,7 +151,6 @@ class MoveShapes:
                 line._recompute()
 
     def _propagate_connectors(self, dcol: int, drow: int) -> None:
-        """Move connected line endpoints by delta."""
         if not self._canvas:
             return
         moved_ids = {s.id for s in self._shapes}

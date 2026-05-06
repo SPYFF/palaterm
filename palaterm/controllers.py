@@ -1,14 +1,38 @@
-"""Centralized panel visibility and state controller."""
+"""Tool switching, state management, and panel visibility controller."""
 
 from __future__ import annotations
 
-from ..models.enums import EndingStyle
-from ..shapes import LineShape, LineStyle, TextShape
-from ..tools import LineTool, RectangleTool, SelectTool
-from ..widgets.panels import (
+from .models import (
+    BorderStyle, EndingStyle, LineShape, LineStyle, TextShape,
+)
+from .tools import LineTool, RectangleTool, SelectTool, TextTool, ToolType
+from .widgets.panels import (
     BorderStylePanel, LayerPanel, LineEndingsPanel, LineStylePanel,
     SelectModePanel, ShapeAlignPanel, TextAlignPanel, ToolPicker,
 )
+
+
+class ToolController:
+    """Manages tool creation and persistent style state."""
+
+    def __init__(self) -> None:
+        self.border_style = BorderStyle.LIGHT
+        self.line_style = LineStyle.ORTHOGONAL
+        self.start_ending = EndingStyle.NONE
+        self.end_ending = EndingStyle.NONE
+        self.active_tool_type = ToolType.SELECT
+
+    def create_tool(self, tool_type: ToolType):
+        match tool_type:
+            case ToolType.SELECT:
+                return SelectTool()
+            case ToolType.RECTANGLE:
+                return RectangleTool(self.border_style)
+            case ToolType.TEXT:
+                return TextTool()
+            case ToolType.LINE:
+                return LineTool(self.border_style, self.line_style,
+                                self.start_ending, self.end_ending)
 
 
 class PanelController:

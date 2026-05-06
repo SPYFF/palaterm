@@ -12,8 +12,8 @@ from textual.widget import Widget
 from ..canvas import Canvas
 from ..geometry import Point, Rect
 from ..rendering import FrameRenderer
-from ..shapes import CharSet, LineShape, TextShape
-from ..tools import SelectTool, TextTool, Tool
+from ..models import CharSet, LineShape, TextShape
+from ..tools import DrawTool, SelectTool, TextTool
 from .modals import TextEditModal
 
 
@@ -50,7 +50,7 @@ class CanvasWidget(Widget, can_focus=True):
     def __init__(self) -> None:
         super().__init__()
         self.canvas = Canvas()
-        self.tool: Tool = SelectTool()
+        self.tool: DrawTool | SelectTool = SelectTool()
         self.charset: CharSet = CharSet.UNICODE
         self._scroll_col = 0
         self._scroll_row = 0

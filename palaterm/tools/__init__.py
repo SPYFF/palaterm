@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum, auto
 
 from ..geometry import Point, Rect
-from ..shapes import LineShape, Shape
+from ..models import LineShape, Shape
 
 from .draw import DrawTool, LineTool, RectangleTool, TextTool
 from .select import SelectMode, SelectTool
@@ -59,21 +59,8 @@ def handle_at(shape: Shape, col: int, row: int) -> Handle | None:
     return None
 
 
-class Tool:
-    """Base tool interface."""
-
-    def on_mouse_down(self, col: int, row: int, canvas) -> Shape | None:
-        return None
-
-    def on_mouse_drag(self, col: int, row: int, canvas) -> None:
-        pass
-
-    def on_mouse_up(self, col: int, row: int, canvas) -> Shape | None:
-        return None
-
-
 __all__ = [
-    "Tool", "ToolType", "Handle",
+    "ToolType", "Handle",
     "get_handles", "handle_at",
     "DrawTool", "RectangleTool", "TextTool", "LineTool",
     "SelectTool", "SelectMode",

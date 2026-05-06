@@ -8,8 +8,8 @@ from textual.strip import Strip
 
 from .canvas import Canvas
 from .geometry import Rect
-from .shapes import CharSet, Shape, braille_rect
-from .tools import SelectTool, get_handles
+from .models import CharSet, Shape, braille_rect
+from .tools import DrawTool, LineTool, SelectTool, get_handles
 
 
 # Pre-allocated style singletons
@@ -32,7 +32,7 @@ class FrameRenderer:
     def invalidate(self) -> None:
         self._cache = None
 
-    def _ensure_cache(self, viewport: Rect, tool, base_style: RichStyle,
+    def _ensure_cache(self, viewport: Rect, tool: DrawTool | SelectTool | None, base_style: RichStyle,
                       charset: CharSet) -> tuple:
         if self._cache is not None:
             return self._cache
@@ -59,7 +59,6 @@ class FrameRenderer:
                 snap_edge_cells = self._get_edge_cells(tool.snap_target)
 
         # Snap edge highlight for line tool
-        from .tools import LineTool
         if isinstance(tool, LineTool) and hasattr(tool, 'snap_target') and tool.snap_target:
             snap_edge_cells = self._get_edge_cells(tool.snap_target)
 
@@ -97,7 +96,7 @@ class FrameRenderer:
                     cells.add((col, b.bottom))
         return cells
 
-    def render_line(self, y: int, viewport: Rect, tool, base_style: RichStyle,
+    def render_line(self, y: int, viewport: Rect, tool: DrawTool | SelectTool | None, base_style: RichStyle,
                     charset: CharSet = CharSet.UNICODE) -> Strip:
         cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells = self._ensure_cache(
             viewport, tool, base_style, charset

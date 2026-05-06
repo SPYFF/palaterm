@@ -4,7 +4,7 @@ from __future__ import annotations
 from .connectors import ConnectorManager
 from .crossings import is_connectable, resolve_crossing
 from .geometry import Point, Rect
-from .shapes import CharSet, Shape, to_ascii
+from .models import CharSet, Shape, to_ascii
 
 
 class Canvas:

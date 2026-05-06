@@ -12,7 +12,7 @@ from textual.events import MouseUp
 from .commands import AddShape, CommandHistory, MoveShapes, RemoveShapes, TransformShapes
 from .controllers import PanelController, ToolController
 from .serialization import load_canvas, save_canvas
-from .shapes import CharSet, EndingStyle, HAlign, LineShape, LineStyle, RectangleShape, TextShape, VAlign
+from .models import CharSet, EndingStyle, HAlign, LineShape, LineStyle, RectangleShape, TextShape, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, ToolType
 from .widgets import (
     AlignCell, BorderStylePanel, CanvasWidget, EndingButton,
@@ -165,18 +165,15 @@ class PalatermApp(App):
 
     def on_canvas_widget_shape_created(self, event: CanvasWidget.ShapeCreated) -> None:
         cmd = AddShape(self.canvas_widget.canvas, event.shape)
-        self.history._undo.append(cmd)
-        self.history._redo.clear()
+        self.history.push(cmd)
 
     def on_canvas_widget_shape_moved(self, event: CanvasWidget.ShapeMoved) -> None:
         cmd = MoveShapes(event.shapes, event.dcol, event.drow, self.canvas_widget.canvas)
-        self.history._undo.append(cmd)
-        self.history._redo.clear()
+        self.history.push(cmd)
 
     def on_canvas_widget_shape_resized(self, event: CanvasWidget.ShapeResized) -> None:
         cmd = TransformShapes([(event.shape, event.old_attrs)])
-        self.history._undo.append(cmd)
-        self.history._redo.clear()
+        self.history.push(cmd)
 
     def on_tool_picker_tool_selected(self, event: ToolPicker.ToolSelected) -> None:
         self._switch_tool(event.tool_type)

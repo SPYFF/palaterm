@@ -7,7 +7,7 @@ from textual.message import Message
 from textual.widget import Widget
 from textual.widgets import Button, Label
 
-from ..shapes import CharSet
+from ..models import CharSet
 
 
 class StatusBar(Widget):

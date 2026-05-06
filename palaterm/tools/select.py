@@ -5,7 +5,8 @@ from __future__ import annotations
 from enum import Enum, auto
 
 from ..geometry import Point, Rect
-from ..shapes import LineShape, RectShape, Shape
+from ..models import LineShape, RectShape, Shape
+from ..connectors import Anchor, Connector, find_snap
 
 
 class SelectMode(Enum):
@@ -104,7 +105,6 @@ class SelectTool:
                 for shape in self.selected:
                     shape.move(dcol, drow)
                 # Propagate to connected lines not in selection
-                from ..connectors import Anchor
                 for shape in self.selected:
                     for conn in canvas.connector_mgr.get_by_target(shape.id):
                         if conn.line_id in moved_ids:
@@ -127,7 +127,6 @@ class SelectTool:
         shape = self._resize_shape
         handle = self._resize_handle
         if isinstance(shape, LineShape):
-            from ..connectors import find_snap
             snap = None
             if canvas:
                 snap = find_snap(col, row, canvas.shapes, exclude_id=shape.id)
@@ -166,7 +165,6 @@ class SelectTool:
             # Commit connector for line handle
             from . import Handle
             if isinstance(self._resize_shape, LineShape) and self._resize_handle in (Handle.LINE_START, Handle.LINE_END):
-                from ..connectors import Anchor, Connector, find_snap
                 line = self._resize_shape
                 anchor = Anchor.START if self._resize_handle == Handle.LINE_START else Anchor.END
                 snap = find_snap(col, row, canvas.shapes, exclude_id=line.id)

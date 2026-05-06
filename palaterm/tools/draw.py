@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from ..geometry import Point, Rect
-from ..shapes import BorderStyle, EndingStyle, LineShape, LineStyle, RectangleShape, Shape, TextShape
+from ..models import BorderStyle, EndingStyle, LineShape, LineStyle, RectangleShape, Shape, TextShape
+from ..connectors import Anchor, Connector, find_snap
 
 
 class DrawTool:
@@ -70,7 +71,6 @@ class LineTool(DrawTool):
                          start_ending=self.start_ending, end_ending=self.end_ending)
 
     def on_mouse_down(self, col: int, row: int, canvas) -> Shape | None:
-        from ..connectors import Anchor, Connector, find_snap
         result = super().on_mouse_down(col, row, canvas)
         # Check snap for start point
         line = self._shape
@@ -85,7 +85,6 @@ class LineTool(DrawTool):
         return result
 
     def _update_shape(self, shape: Shape, start: Point, current: Point) -> None:
-        from ..connectors import find_snap
         assert isinstance(shape, LineShape)
         shape.end = Point(current.col, current.row)
         # Live snap detection for visual feedback
@@ -93,7 +92,6 @@ class LineTool(DrawTool):
         shape._recompute()
 
     def on_mouse_drag(self, col: int, row: int, canvas) -> None:
-        from ..connectors import find_snap
         if self._shape and self._start:
             line = self._shape
             assert isinstance(line, LineShape)
@@ -108,7 +106,6 @@ class LineTool(DrawTool):
             line._recompute()
 
     def on_mouse_up(self, col: int, row: int, canvas) -> Shape | None:
-        from ..connectors import Anchor, Connector, find_snap
         if self._shape and self._start:
             line = self._shape
             assert isinstance(line, LineShape)

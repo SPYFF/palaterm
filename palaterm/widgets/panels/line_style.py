@@ -6,7 +6,7 @@ from textual.app import ComposeResult
 from textual.message import Message
 from textual.widgets import Button, Static
 
-from ...shapes import LineStyle
+from ...models import LineStyle
 
 _STYLES = [
     ("⌐ Orthogonal", LineStyle.ORTHOGONAL),

@@ -7,9 +7,8 @@ from .enums import (
     HAlign, VAlign,
     LineStyle,
 )
-from .base import Shape, RectShape
-from .braille import braille_rect
-from .charset import CharSet, to_ascii
+from .base import Shape, RectShape, render_border
+from .charset import CharSet, to_ascii, braille_rect
 from .rectangle import RectangleShape
 from .text import TextShape
 from .line import LineShape, _braille_line

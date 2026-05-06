@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from ..geometry import Rect
-from .base import RectShape
+from .base import RectShape, render_border
 from .charset import CharSet
-from .enums import BORDER_CHARS, BorderStyle, HAlign, VAlign
+from .enums import BorderStyle, HAlign, VAlign
 
 
 class TextShape(RectShape):
@@ -28,17 +28,7 @@ class TextShape(RectShape):
         r = self.rect
 
         if self.has_border and r.width >= 2 and r.height >= 2:
-            tl, tr, bl, br, h, v = BORDER_CHARS[self.border]
-            cells[(r.left, r.top)] = tl
-            cells[(r.right, r.top)] = tr
-            cells[(r.left, r.bottom)] = bl
-            cells[(r.right, r.bottom)] = br
-            for col in range(r.left + 1, r.right):
-                cells[(col, r.top)] = h
-                cells[(col, r.bottom)] = h
-            for row in range(r.top + 1, r.bottom):
-                cells[(r.left, row)] = v
-                cells[(r.right, row)] = v
+            cells.update(render_border(r, self.border))
 
         if self.text:
             inset = 1
