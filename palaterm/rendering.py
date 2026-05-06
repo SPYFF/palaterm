@@ -12,11 +12,14 @@ from .models import CharSet, Shape, braille_rect
 from .tools import DrawTool, LineTool, SelectTool, get_handles
 
 
-# Pre-allocated style singletons
-_STYLE_CYAN = RichStyle(color="cyan")
-_STYLE_MAGENTA = RichStyle(color="bright_magenta")
-_STYLE_SNAP = RichStyle(color="green", bold=True)
-_STYLE_HIGHLIGHT = {
+# Foreground-only style fragments. They are merged with the canvas widget's
+# resolved style each frame so highlights inherit the theme background; emitting
+# them with bg=None makes the terminal fall back to its default background,
+# which differs from the canvas's themed bg and produces a visible color bleed.
+_FG_CYAN = RichStyle(color="cyan")
+_FG_MAGENTA = RichStyle(color="bright_magenta")
+_FG_SNAP = RichStyle(color="green", bold=True)
+_FG_HIGHLIGHT = {
     "yellow": RichStyle(color="yellow"),
     "bright_cyan": RichStyle(color="bright_cyan"),
 }
@@ -105,6 +108,14 @@ class FrameRenderer:
         width = viewport.width
         scroll_col = viewport.left
 
+        # Merge fg-only highlight fragments onto the canvas's resolved style so
+        # they inherit its themed background instead of falling back to the
+        # terminal default.
+        cyan_style = base_style + _FG_CYAN
+        magenta_style = base_style + _FG_MAGENTA
+        snap_style = base_style + _FG_SNAP
+        highlight_styles = {k: base_style + v for k, v in _FG_HIGHLIGHT.items()}
+
         segments: list[Segment] = []
         for x in range(width):
             col = x + scroll_col
@@ -112,16 +123,16 @@ class FrameRenderer:
             ch = cells.get(pos, " ")
 
             if pos in sel_braille:
-                segments.append(Segment(sel_braille[pos], _STYLE_CYAN))
+                segments.append(Segment(sel_braille[pos], cyan_style))
             elif sel_rect and sel_rect.contains(col, row):
-                segments.append(Segment(ch, _STYLE_CYAN))
+                segments.append(Segment(ch, cyan_style))
             elif pos in handle_cells:
                 handle_ch = "*" if charset == CharSet.ASCII else "◆"
-                segments.append(Segment(handle_ch, _STYLE_MAGENTA))
+                segments.append(Segment(handle_ch, magenta_style))
             elif pos in snap_edge_cells:
-                segments.append(Segment(ch, _STYLE_SNAP))
+                segments.append(Segment(ch, snap_style))
             elif pos in highlight_cells:
-                segments.append(Segment(ch, _STYLE_HIGHLIGHT[highlight_cells[pos]]))
+                segments.append(Segment(ch, highlight_styles[highlight_cells[pos]]))
             else:
                 segments.append(Segment(ch, base_style))
         return Strip(segments)
