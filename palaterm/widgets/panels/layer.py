@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Vertical
 from textual.message import Message
-from textual.widgets import Button, Label, Static
+from textual.widgets import Button, Label
 
 _LAYER_ACTIONS = [
     ("⤒", "bring_to_front"),
@@ -15,20 +15,16 @@ _LAYER_ACTIONS = [
 ]
 
 
-class LayerPanel(Static):
+class LayerPanel(Vertical):
     """Layer reordering buttons, anchored to bottom."""
 
     DEFAULT_CSS = """
     LayerPanel {
         dock: bottom;
-    }
-    LayerPanel Horizontal {
-        width: 100%;
-        height: 1;
+        height: auto;
     }
     LayerPanel Button {
         width: 1fr;
-        padding: 0;
     }
     """
 
@@ -44,7 +40,7 @@ class LayerPanel(Static):
         yield Label("Layer", classes="panel-label")
         with Horizontal():
             for icon, action in _LAYER_ACTIONS:
-                yield Button(icon, id=f"layer-{action}", classes="flat")
+                yield Button(icon, id=f"layer-{action}", compact=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         action = event.button.id

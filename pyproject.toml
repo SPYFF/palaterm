@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "A TUI drawing application inspired by MonoSketch"
 requires-python = ">=3.11"
 dependencies = [
-    "textual==1.0.0",
+    "textual==8.2.5",
     "pyperclip==1.9.0",
 ]
 

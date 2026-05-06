@@ -16,7 +16,7 @@ class ShapeAlignPanel(Static):
     """Shape alignment buttons (2 rows of 3)."""
 
     DEFAULT_CSS = """
-    ShapeAlignPanel.visible {
+    ShapeAlignPanel {
         layout: grid;
         grid-size: 3 3;
         grid-columns: 1fr 1fr 1fr;
@@ -26,7 +26,6 @@ class ShapeAlignPanel(Static):
     }
     ShapeAlignPanel Button {
         width: 100%;
-        padding: 0;
     }
     """
 
@@ -41,7 +40,7 @@ class ShapeAlignPanel(Static):
     def compose(self) -> ComposeResult:
         yield Label("Align", classes="panel-label")
         for icon, action in _ALIGN_ACTIONS:
-            yield Button(icon, id=f"salign-{action}", classes="flat")
+            yield Button(icon, id=f"salign-{action}", compact=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         action = event.button.id

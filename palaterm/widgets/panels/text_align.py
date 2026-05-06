@@ -27,7 +27,7 @@ class AlignCell(Button):
             self.valign = valign
 
     def __init__(self, char: str, halign: HAlign, valign: VAlign, **kwargs) -> None:
-        super().__init__(char, classes="flat", **kwargs)
+        super().__init__(char, compact=True, **kwargs)
         self.halign = halign
         self.valign = valign
 
@@ -40,7 +40,7 @@ class TextAlignPanel(Static):
     """3x3 text alignment picker grid."""
 
     DEFAULT_CSS = """
-    TextAlignPanel.visible {
+    TextAlignPanel {
         layout: grid;
         grid-size: 3 4;
         grid-columns: 1fr 1fr 1fr;
@@ -50,7 +50,6 @@ class TextAlignPanel(Static):
     }
     TextAlignPanel AlignCell {
         width: 100%;
-        padding: 0;
         content-align: center middle;
     }
     """

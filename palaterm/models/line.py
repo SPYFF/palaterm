@@ -21,10 +21,18 @@ _BRAILLE_DOTS = {
 }
 
 
-def _braille_line(start: Point, end: Point) -> dict[tuple[int, int], str]:
-    """Render a straight line using braille sub-pixel resolution (2x4 per cell)."""
-    x0, y0 = start.col * 2, start.row * 4
-    x1, y1 = end.col * 2, end.row * 4
+def _braille_line(start: Point, end: Point,
+                  start_offset: tuple[int, int] | None = None,
+                  end_offset: tuple[int, int] | None = None) -> dict[tuple[int, int], str]:
+    """Render a straight line using braille sub-pixel resolution (2x4 per cell).
+
+    start_offset/end_offset: optional (sub_x, sub_y) offsets within the cell
+    (sub_x: 0-1, sub_y: 0-3). If None, defaults to (0, 0).
+    """
+    sx_off, sy_off = start_offset or (0, 0)
+    ex_off, ey_off = end_offset or (0, 0)
+    x0, y0 = start.col * 2 + sx_off, start.row * 4 + sy_off
+    x1, y1 = end.col * 2 + ex_off, end.row * 4 + ey_off
     cells: dict[tuple[int, int], int] = {}
     dx, dy = abs(x1 - x0), abs(y1 - y0)
     sx = 1 if x0 < x1 else -1
@@ -47,6 +55,32 @@ def _braille_line(start: Point, end: Point) -> dict[tuple[int, int], str]:
             y0 += sy
     return {pos: chr(0x2800 | bits) for pos, bits in cells.items()}
 
+
+
+def _braille_offsets(start: Point, end: Point) -> tuple[tuple[int, int], tuple[int, int]]:
+    """Compute sub-cell offsets for braille line endpoints based on direction.
+
+    Returns (start_offset, end_offset) where each is (sub_x: 0-1, sub_y: 0-3).
+    """
+    if start.col == end.col and start.row == end.row:
+        return (0, 0), (0, 0)
+    dx = end.col - start.col
+    dy = end.row - start.row
+    # Start: offset toward the direction of travel
+    if dx == 0:
+        s_off = (0, 0 if dy > 0 else 3)
+    elif dy == 0:
+        s_off = (0 if dx > 0 else 1, 0)
+    else:
+        s_off = (0 if dx > 0 else 1, 0 if dy > 0 else 3)
+    # End: offset from the direction of arrival
+    if dx == 0:
+        e_off = (0, 3 if dy > 0 else 0)
+    elif dy == 0:
+        e_off = (1 if dx > 0 else 0, 0)
+    else:
+        e_off = (1 if dx > 0 else 0, 3 if dy > 0 else 0)
+    return s_off, e_off
 
 def _ascii_slope_char(dxc: int, dyc: int) -> str:
     if dxc == 0 and dyc == 0:
@@ -197,11 +231,16 @@ class LineShape(Shape):
                         cells.update(_ascii_line(self._joint_points[i], self._joint_points[i + 1]))
             else:
                 if self.line_style == LineStyle.STRAIGHT:
-                    cells = _braille_line(self.start, self.end)
+                    s_off, e_off = _braille_offsets(self.start, self.end)
+                    cells = _braille_line(self.start, self.end, s_off, e_off)
                 else:
                     cells = {}
-                    for i in range(len(self._joint_points) - 1):
-                        cells.update(_braille_line(self._joint_points[i], self._joint_points[i + 1]))
+                    pts = self._joint_points
+                    for i in range(len(pts) - 1):
+                        # Only apply directional offsets at true start/end
+                        s_off = _braille_offsets(pts[i], pts[i + 1])[0] if i == 0 else None
+                        e_off = _braille_offsets(pts[i], pts[i + 1])[1] if i == len(pts) - 2 else None
+                        cells.update(_braille_line(pts[i], pts[i + 1], s_off, e_off))
             self._apply_endings(cells, charset)
             return cells
 

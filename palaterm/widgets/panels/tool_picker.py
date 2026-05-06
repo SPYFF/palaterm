@@ -37,7 +37,7 @@ class ToolPicker(Static):
 
     def compose(self) -> ComposeResult:
         for label, tool_type in _TOOL_LABELS:
-            yield Button(label, id=f"tool-{tool_type.name.lower()}", classes="flat")
+            yield Button(label, id=f"tool-{tool_type.name.lower()}", compact=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         for label, tool_type in _TOOL_LABELS:

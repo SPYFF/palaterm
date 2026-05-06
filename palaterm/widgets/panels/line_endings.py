@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from rich.text import Text
-
 from textual.app import ComposeResult
 from textual.message import Message
 from textual.widgets import Button, Label, Static
@@ -28,9 +26,9 @@ _ASCII_GLYPHS = {
 }
 
 
-def _button_label(ending: EndingStyle, charset: CharSet) -> Text:
+def _button_label(ending: EndingStyle, charset: CharSet) -> str:
     glyphs = _UNICODE_GLYPHS if charset == CharSet.UNICODE else _ASCII_GLYPHS
-    return Text(f"[{glyphs[ending]}]")
+    return glyphs[ending]
 
 
 class EndingButton(Button):
@@ -43,7 +41,7 @@ class EndingButton(Button):
             self.endpoint = endpoint
 
     def __init__(self, ending: EndingStyle, endpoint: str, **kwargs) -> None:
-        super().__init__(_button_label(ending, CharSet.UNICODE), classes="flat", **kwargs)
+        super().__init__(_button_label(ending, CharSet.UNICODE), compact=True, **kwargs)
         self.ending = ending
         self.endpoint = endpoint
 
@@ -59,7 +57,7 @@ class LineEndingsPanel(Static):
     """Line endings picker: 5 styles x 2 endpoints (start/end)."""
 
     DEFAULT_CSS = """
-    LineEndingsPanel.visible {
+    LineEndingsPanel {
         layout: grid;
         grid-size: 2 7;
         grid-columns: 1fr 1fr;
@@ -80,7 +78,6 @@ class LineEndingsPanel(Static):
     LineEndingsPanel EndingButton {
         width: 100%;
         min-width: 3;
-        padding: 0;
         content-align: center middle;
     }
     """

@@ -35,7 +35,7 @@ class StatusBar(Widget):
     }
     StatusBar Button {
         height: 1;
-        min-width: 4;
+        min-width: 0;
         border: none;
         padding: 0 1;
         background: transparent;
@@ -62,8 +62,8 @@ class StatusBar(Widget):
         yield self._left
         yield self._center
         yield self._right
-        yield Button("Uni", id="charset-unicode")
-        yield Button("Asc", id="charset-ascii")
+        yield Button("Uni", id="charset-unicode", compact=True)
+        yield Button("Asc", id="charset-ascii", compact=True)
 
     def on_mount(self) -> None:
         self.query_one("#charset-unicode", Button).add_class("active")

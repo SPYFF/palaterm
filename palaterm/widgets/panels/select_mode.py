@@ -3,20 +3,19 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal
+from textual.containers import Horizontal, Vertical
 from textual.message import Message
-from textual.widgets import Button, Static
+from textual.widgets import Button
 
 from ...tools import SelectMode
 
 
-class SelectModePanel(Static):
+class SelectModePanel(Vertical):
     """Select mode picker: Full or Partial."""
 
     DEFAULT_CSS = """
-    SelectModePanel Horizontal {
-        width: 100%;
-        height: 1;
+    SelectModePanel {
+        height: auto;
     }
     SelectModePanel Button {
         width: 1fr;
@@ -33,8 +32,8 @@ class SelectModePanel(Static):
 
     def compose(self) -> ComposeResult:
         with Horizontal():
-            yield Button("Full", id="mode-full", classes="flat")
-            yield Button("Partial", id="mode-partial", classes="flat")
+            yield Button("Full", id="mode-full", compact=True)
+            yield Button("Partial", id="mode-partial", compact=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         mode = SelectMode.FULL if event.button.id == "mode-full" else SelectMode.PARTIAL

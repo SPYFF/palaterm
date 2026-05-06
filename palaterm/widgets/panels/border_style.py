@@ -22,27 +22,11 @@ class BorderStylePanel(Vertical):
     """Border style picker: 5 icon Buttons in a row."""
 
     DEFAULT_CSS = """
-    BorderStylePanel Horizontal {
-        width: auto;
-        height: 1;
+    BorderStylePanel {
+        height: auto;
     }
     BorderStylePanel Button {
-        width: 3;
-        min-width: 3;
-        height: 1;
-        padding: 0;
-        border: none;
-        background: transparent;
-        color: $text;
-        text-style: none;
-        content-align: center middle;
-    }
-    BorderStylePanel Button:hover {
-        background: $surface;
-    }
-    BorderStylePanel Button.active {
-        background: $accent;
-        color: $text;
+        width: 1fr;
     }
     """
 
@@ -58,7 +42,7 @@ class BorderStylePanel(Vertical):
         yield Label("Border", classes="panel-label")
         with Horizontal():
             for icon, style in _STYLES:
-                yield Button(icon, id=f"border-{style.name.lower()}")
+                yield Button(icon, id=f"border-{style.name.lower()}", compact=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         for _, style in _STYLES:

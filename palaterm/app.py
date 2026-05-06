@@ -82,26 +82,19 @@ class PalatermApp(App):
     .panel.visible {
         display: block;
     }
+    .panel Horizontal {
+        width: 100%;
+        height: 1;
+    }
+    .panel Button {
+        padding: 0;
+        min-width: 0;
+        height: 1;
+    }
     .panel-label {
         height: 1;
         padding: 0 1;
         text-style: dim;
-    }
-    Button.flat {
-        min-width: 1;
-        height: 1;
-        border: none;
-        padding: 0 1;
-        background: transparent;
-        color: $text;
-        text-style: none;
-    }
-    Button.flat:hover {
-        background: $surface;
-    }
-    Button.flat.active {
-        background: $accent;
-        color: $text;
     }
     """
 

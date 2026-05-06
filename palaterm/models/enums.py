@@ -73,11 +73,13 @@ class Direction(Enum):
 
 
 # Arrow characters per direction (Unicode)
+# Only 4 triangle glyphs exist (▲▼◀▶), so diagonals map to the nearest
+# visual match. Multiple directions sharing a character is intentional.
 ARROW_CHARS: dict[Direction, str] = {
     Direction.N: "▲", Direction.S: "▼",
     Direction.E: "▶", Direction.W: "◀",
     Direction.NE: "◀", Direction.NW: "▶",
-    Direction.SE: "▲", Direction.SW: "▶",
+    Direction.SE: "◀", Direction.SW: "▶",
 }
 
 # Arrow characters per direction (ASCII)
