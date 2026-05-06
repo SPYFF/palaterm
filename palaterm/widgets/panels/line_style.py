@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Vertical
 from textual.message import Message
 from textual.widgets import Button
 
@@ -23,7 +23,7 @@ class LineStylePanel(Vertical):
         height: auto;
     }
     LineStylePanel Button {
-        width: 1fr;
+        width: 100%;
     }
     """
 
@@ -36,9 +36,8 @@ class LineStylePanel(Vertical):
         super().__init__(classes="panel")
 
     def compose(self) -> ComposeResult:
-        with Horizontal():
-            for label, style in _STYLES:
-                yield Button(label, id=f"lstyle-{style.name.lower()}", compact=True)
+        for label, style in _STYLES:
+            yield Button(label, id=f"lstyle-{style.name.lower()}", compact=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         for _, style in _STYLES:

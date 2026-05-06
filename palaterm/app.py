@@ -67,7 +67,7 @@ class PalatermApp(App):
         layout: horizontal;
     }
     #sidebar {
-        width: 24;
+        width: 16;
         height: 100%;
         border-right: solid $accent;
     }
