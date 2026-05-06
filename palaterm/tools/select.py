@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum, auto
 
 from ..geometry import Point, Rect
-from ..models import LineShape, RectShape, Shape
+from ..models import BorderStyle, LineShape, RectangleShape, RectShape, Shape
 from ..connectors import Anchor, Connector, find_snap
 
 
@@ -27,17 +27,21 @@ class SelectTool:
         self._resize_handle = None
         self._resize_shape: Shape | None = None
         self._resize_anchor: Point | None = None
+        self._resize_anchor_f: tuple[float, float] | None = None  # for braille rect precise resize
         self._rect_selecting: bool = False
         self.selection_rect: Rect | None = None
+        self.selection_rect_f: tuple[float, float, float, float] | None = None  # (left_f, top_f, right_f, bottom_f)
         self.snap_target: object | None = None  # SnapResult during line handle drag
         self._modifier: str = "none"  # "none" | "add" | "remove"
+        self._drag_start_f: tuple[float, float] | None = None
 
-    def on_mouse_down(self, col: int, row: int, canvas, *, ctrl: bool = False, alt: bool = False) -> Shape | None:
+    def on_mouse_down(self, col: int, row: int, canvas, *, ctrl: bool = False, alt: bool = False,
+                      pointer_x: float | None = None, pointer_y: float | None = None) -> Shape | None:
         from . import handle_at, Handle
 
         # Check if clicking on a handle of a selected shape
         for shape in self.selected:
-            h = handle_at(shape, col, row)
+            h = handle_at(shape, col, row, pointer_x, pointer_y)
             if h is not None:
                 self._start_resize(shape, h, col, row)
                 return shape
@@ -66,11 +70,13 @@ class SelectTool:
             if not ctrl and not alt:
                 self.selected = []
             self._drag_start = Point(col, row)
+            self._drag_start_f = (pointer_x, pointer_y) if pointer_x is not None and pointer_y is not None else None
             self._moving = False
             self._resizing = False
             self._rect_selecting = True
             self._modifier = "add" if ctrl else "remove" if alt else "none"
             self.selection_rect = None
+            self.selection_rect_f = None
         return self.selected[0] if self.selected else None
 
     def _start_resize(self, shape: Shape, handle, col: int, row: int) -> None:
@@ -82,6 +88,7 @@ class SelectTool:
         self._resize_handle = handle
         self._resize_shape = shape
         self._drag_start = Point(col, row)
+        self._resize_anchor_f = None
 
         if isinstance(shape, LineShape):
             self._resize_anchor = None
@@ -104,10 +111,20 @@ class SelectTool:
                     self._resize_anchor = Point(b.left, b.top)
                 case Handle.BOT_RIGHT:
                     self._resize_anchor = Point(b.left, b.top)
+            # Precise float anchor for braille rectangles
+            if (isinstance(shape, RectangleShape) and shape.border == BorderStyle.BRAILLE
+                    and shape.rect_f is not None):
+                lf, tf, rf, bf = shape.rect_f
+                anchor_map = {
+                    Handle.TOP_LEFT: (rf, bf), Handle.TOP_MID: (lf, bf), Handle.TOP_RIGHT: (lf, bf),
+                    Handle.MID_LEFT: (rf, tf), Handle.MID_RIGHT: (lf, tf),
+                    Handle.BOT_LEFT: (rf, tf), Handle.BOT_MID: (lf, tf), Handle.BOT_RIGHT: (lf, tf),
+                }
+                self._resize_anchor_f = anchor_map.get(handle)
 
-    def on_mouse_drag(self, col: int, row: int, canvas) -> None:
+    def on_mouse_drag(self, col: int, row: int, canvas, *, pointer_x: float | None = None, pointer_y: float | None = None) -> None:
         if self._resizing and self._resize_shape and self._resize_handle:
-            self._apply_resize(col, row, canvas)
+            self._apply_resize(col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y)
         elif self._moving and self.selected and self._drag_start:
             dcol = col - self._drag_start.col
             drow = row - self._drag_start.row
@@ -131,8 +148,13 @@ class SelectTool:
                 self._drag_start = Point(col, row)
         elif self._rect_selecting and self._drag_start:
             self.selection_rect = Rect.from_points(self._drag_start, Point(col, row))
+            if self._drag_start_f is not None and pointer_x is not None and pointer_y is not None:
+                sx, sy = self._drag_start_f
+                self.selection_rect_f = (min(sx, pointer_x), min(sy, pointer_y),
+                                         max(sx, pointer_x), max(sy, pointer_y))
 
-    def _apply_resize(self, col: int, row: int, canvas=None) -> None:
+    def _apply_resize(self, col: int, row: int, canvas=None, *,
+                      pointer_x: float | None = None, pointer_y: float | None = None) -> None:
         from . import Handle
 
         shape = self._resize_shape
@@ -156,6 +178,21 @@ class SelectTool:
                 shape.end = pt
                 shape.end_side = side_name
             shape._recompute()
+        elif (isinstance(shape, RectangleShape) and shape.border == BorderStyle.BRAILLE
+                and self._resize_anchor_f is not None
+                and pointer_x is not None and pointer_y is not None):
+            ax, ay = self._resize_anchor_f
+            match handle:
+                case Handle.TOP_LEFT | Handle.TOP_RIGHT | Handle.BOT_LEFT | Handle.BOT_RIGHT:
+                    shape.resize_f(pointer_x, pointer_y, ax, ay)
+                case Handle.TOP_MID | Handle.BOT_MID:
+                    lf, _, rf, _ = shape.rect_f if shape.rect_f else (shape.bound.left, 0, shape.bound.right, 0)
+                    shape.resize_f(lf, pointer_y, rf, ay)
+                case Handle.MID_LEFT | Handle.MID_RIGHT:
+                    _, tf, _, bf = shape.rect_f if shape.rect_f else (0, shape.bound.top, 0, shape.bound.bottom)
+                    shape.resize_f(pointer_x, tf, ax, bf)
+                case _:
+                    return
         elif isinstance(shape, RectShape) and self._resize_anchor:
             anchor = self._resize_anchor
             b = shape.bound
@@ -170,9 +207,10 @@ class SelectTool:
                     return
             shape.resize(new_rect)
 
-    def on_mouse_up(self, col: int, row: int, canvas, *, ctrl: bool = False, alt: bool = False) -> Shape | None:
+    def on_mouse_up(self, col: int, row: int, canvas, *, ctrl: bool = False, alt: bool = False,
+                    pointer_x: float | None = None, pointer_y: float | None = None) -> Shape | None:
         if self._resizing:
-            self._apply_resize(col, row, canvas)
+            self._apply_resize(col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y)
             # Commit connector for line handle
             from . import Handle
             if isinstance(self._resize_shape, LineShape) and self._resize_handle in (Handle.LINE_START, Handle.LINE_END):
@@ -207,8 +245,11 @@ class SelectTool:
         self._resize_handle = None
         self._resize_shape = None
         self._resize_anchor = None
+        self._resize_anchor_f = None
         self._rect_selecting = False
         self._drag_start = None
+        self._drag_start_f = None
         self.selection_rect = None
+        self.selection_rect_f = None
         self._modifier = "none"
         return self.selected[0] if self.selected else None

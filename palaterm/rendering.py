@@ -8,7 +8,7 @@ from textual.strip import Strip
 
 from .canvas import Canvas
 from .geometry import Rect
-from .models import CharSet, Shape, braille_rect
+from .models import CharSet, Shape, braille_rect, braille_rect_precise
 from .tools import DrawTool, LineTool, SelectTool, get_handles
 
 
@@ -73,7 +73,11 @@ class FrameRenderer:
 
         sel_braille: dict[tuple[int, int], str] = {}
         if sel_rect:
-            sel_braille = braille_rect(sel_rect.left, sel_rect.top, sel_rect.right, sel_rect.bottom, charset)
+            if isinstance(tool, SelectTool) and tool.selection_rect_f:
+                lf, tf, rf, bf = tool.selection_rect_f
+                sel_braille = braille_rect_precise(lf, tf, rf, bf, charset)
+            else:
+                sel_braille = braille_rect(sel_rect.left, sel_rect.top, sel_rect.right, sel_rect.bottom, charset)
 
         self._cache = (cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells)
         return self._cache

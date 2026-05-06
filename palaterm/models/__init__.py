@@ -8,7 +8,7 @@ from .enums import (
     LineStyle,
 )
 from .base import Shape, RectShape, render_border
-from .charset import CharSet, to_ascii, braille_rect
+from .charset import CharSet, to_ascii, braille_rect, braille_rect_precise
 from .rectangle import RectangleShape
 from .text import TextShape
 from .line import LineShape, _braille_line
@@ -24,5 +24,6 @@ __all__ = [
     "TextShape",
     "LineShape",
     "braille_rect",
+    "braille_rect_precise",
     "CharSet", "to_ascii",
 ]

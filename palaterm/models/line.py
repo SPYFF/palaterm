@@ -146,6 +146,8 @@ class LineShape(Shape):
         self.end_ending = end_ending
         self.start_side: str | None = None  # "left"/"right"/"top"/"bottom" or None
         self.end_side: str | None = None
+        self.start_sub: tuple[int, int] | None = None  # (sub_x: 0-1, sub_y: 0-3)
+        self.end_sub: tuple[int, int] | None = None
         self._joint_points: list[Point] = []
         self._recompute()
 
@@ -231,15 +233,19 @@ class LineShape(Shape):
                         cells.update(_ascii_line(self._joint_points[i], self._joint_points[i + 1]))
             else:
                 if self.line_style == LineStyle.STRAIGHT:
-                    s_off, e_off = _braille_offsets(self.start, self.end)
+                    default_s, default_e = _braille_offsets(self.start, self.end)
+                    s_off = self.start_sub or default_s
+                    e_off = self.end_sub or default_e
                     cells = _braille_line(self.start, self.end, s_off, e_off)
                 else:
+                    # For orthogonal lines we ignore start_sub/end_sub: corners
+                    # are integer-cell joints, and per-segment directional
+                    # offsets are required at *both* ends of every segment to
+                    # avoid sparse dots in the middle of the path.
                     cells = {}
                     pts = self._joint_points
                     for i in range(len(pts) - 1):
-                        # Only apply directional offsets at true start/end
-                        s_off = _braille_offsets(pts[i], pts[i + 1])[0] if i == 0 else None
-                        e_off = _braille_offsets(pts[i], pts[i + 1])[1] if i == len(pts) - 2 else None
+                        s_off, e_off = _braille_offsets(pts[i], pts[i + 1])
                         cells.update(_braille_line(pts[i], pts[i + 1], s_off, e_off))
             self._apply_endings(cells, charset)
             return cells

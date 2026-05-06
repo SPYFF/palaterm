@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import time
 
 from textual.events import MouseDown, MouseMove, MouseUp
@@ -65,6 +66,15 @@ class CanvasWidget(Widget, can_focus=True):
     def _to_canvas_coords(self, x: int, y: int) -> tuple[int, int]:
         return x + self._scroll_col, y + self._scroll_row
 
+    def _to_canvas_coords_f(self, pointer_x: float, pointer_y: float) -> tuple[int, int]:
+        """Floor pointer floats to the cell they fall into.
+
+        Must use floor (not round) so that sub-cell offsets — which are derived
+        from the same floor — describe a position *inside* the returned cell
+        rather than a phantom position in the next cell over.
+        """
+        return math.floor(pointer_x) + self._scroll_col, math.floor(pointer_y) + self._scroll_row
+
     def open_text_editor(self, shape: TextShape) -> None:
         self._editing = True
 
@@ -95,7 +105,9 @@ class CanvasWidget(Widget, can_focus=True):
     def on_mouse_down(self, event: MouseDown) -> None:
         if self._editing:
             return
-        col, row = self._to_canvas_coords(event.x, event.y)
+        col, row = self._to_canvas_coords_f(event.pointer_x, event.pointer_y)
+        px = event.pointer_x + self._scroll_col
+        py = event.pointer_y + self._scroll_row
         now = time.monotonic()
         if isinstance(self.tool, SelectTool) and event.button == 1:
             hit = self.canvas.shape_at(col, row)
@@ -112,9 +124,10 @@ class CanvasWidget(Widget, can_focus=True):
         self._mouse_down = True
         self._move_start = Point(col, row)
         if isinstance(self.tool, SelectTool):
-            self.tool.on_mouse_down(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta)
+            self.tool.on_mouse_down(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta,
+                                    pointer_x=px, pointer_y=py)
         else:
-            self.tool.on_mouse_down(col, row, self.canvas)
+            self.tool.on_mouse_down(col, row, self.canvas, pointer_x=px, pointer_y=py)
         if isinstance(self.tool, SelectTool) and self.tool._resizing and self.tool._resize_shape:
             shape = self.tool._resize_shape
             if isinstance(shape, LineShape):
@@ -126,9 +139,11 @@ class CanvasWidget(Widget, can_focus=True):
     def on_mouse_move(self, event: MouseMove) -> None:
         if self._editing:
             return
-        col, row = self._to_canvas_coords(event.x, event.y)
+        col, row = self._to_canvas_coords_f(event.pointer_x, event.pointer_y)
         if self._mouse_down:
-            self.tool.on_mouse_drag(col, row, self.canvas)
+            px = event.pointer_x + self._scroll_col
+            py = event.pointer_y + self._scroll_row
+            self.tool.on_mouse_drag(col, row, self.canvas, pointer_x=px, pointer_y=py)
             self.refresh()
         elif isinstance(self.tool, SelectTool):
             old = self.tool.hover_shape
@@ -141,15 +156,18 @@ class CanvasWidget(Widget, can_focus=True):
             return
         self.release_mouse()
         self._mouse_down = False
-        col, row = self._to_canvas_coords(event.x, event.y)
+        col, row = self._to_canvas_coords_f(event.pointer_x, event.pointer_y)
+        px = event.pointer_x + self._scroll_col
+        py = event.pointer_y + self._scroll_row
         # Check if select tool was moving before on_mouse_up resets state
         was_moving = (isinstance(self.tool, SelectTool) and
                       self.tool._moving and self.tool.selected and self._move_start)
         was_resizing = (isinstance(self.tool, SelectTool) and self.tool._resizing)
         if isinstance(self.tool, SelectTool):
-            result = self.tool.on_mouse_up(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta)
+            result = self.tool.on_mouse_up(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta,
+                                           pointer_x=px, pointer_y=py)
         else:
-            result = self.tool.on_mouse_up(col, row, self.canvas)
+            result = self.tool.on_mouse_up(col, row, self.canvas, pointer_x=px, pointer_y=py)
         if isinstance(self.tool, TextTool) and isinstance(result, TextShape):
             self.open_text_editor(result)
         elif result and not isinstance(self.tool, SelectTool):

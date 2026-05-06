@@ -19,7 +19,7 @@ def _enum_str(e) -> str:
 
 
 def _serialize_rectangle(s: RectangleShape) -> dict:
-    return {
+    d = {
         "type": "rectangle",
         "id": s.id,
         "left": s.rect.left, "top": s.rect.top,
@@ -27,6 +27,9 @@ def _serialize_rectangle(s: RectangleShape) -> dict:
         "border": _enum_str(s.border),
         "fill": _enum_str(s.fill),
     }
+    if s.rect_f is not None:
+        d["rect_f"] = list(s.rect_f)
+    return d
 
 
 def _serialize_text(s: TextShape) -> dict:
@@ -60,6 +63,10 @@ def _serialize_line(s: LineShape) -> dict:
         d["start_ending"] = _enum_str(s.start_ending)
     if s.end_ending != EndingStyle.NONE:
         d["end_ending"] = _enum_str(s.end_ending)
+    if s.start_sub:
+        d["start_sub"] = list(s.start_sub)
+    if s.end_sub:
+        d["end_sub"] = list(s.end_sub)
     return d
 
 
@@ -88,6 +95,8 @@ def _deserialize_rectangle(d: dict) -> RectangleShape:
     )
     if "id" in d:
         s.id = d["id"]
+    if "rect_f" in d:
+        s.rect_f = tuple(d["rect_f"])
     return s
 
 
@@ -120,6 +129,10 @@ def _deserialize_line(d: dict) -> LineShape:
         s.start_side = d["start_side"]
     if "end_side" in d:
         s.end_side = d["end_side"]
+    if "start_sub" in d:
+        s.start_sub = tuple(d["start_sub"])
+    if "end_sub" in d:
+        s.end_sub = tuple(d["end_sub"])
     s._recompute()
     return s
 
