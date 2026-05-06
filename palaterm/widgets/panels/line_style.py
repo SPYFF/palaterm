@@ -5,7 +5,7 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.message import Message
-from textual.widgets import Button
+from textual.widgets import Button, Label
 
 from ...models import LineStyle
 
@@ -36,6 +36,7 @@ class LineStylePanel(Vertical):
         super().__init__(classes="panel")
 
     def compose(self) -> ComposeResult:
+        yield Label("Line", classes="panel-label")
         for label, style in _STYLES:
             yield Button(label, id=f"lstyle-{style.name.lower()}", compact=True)
 

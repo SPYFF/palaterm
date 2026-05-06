@@ -86,7 +86,7 @@ class LineEndingsPanel(Static):
         super().__init__(classes="panel")
 
     def compose(self) -> ComposeResult:
-        yield Label("Ends", classes="panel-label")
+        yield Label("Endings", classes="panel-label")
         yield Label("Start", classes="endings-col-label")
         yield Label("End", classes="endings-col-label")
         for style in EndingStyle:

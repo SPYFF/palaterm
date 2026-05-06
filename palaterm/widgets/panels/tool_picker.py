@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.message import Message
-from textual.widgets import Button, Static
+from textual.widgets import Button, Label, Static
 
 from ...tools import ToolType
 
@@ -36,6 +36,7 @@ class ToolPicker(Static):
             self.tool_type = tool_type
 
     def compose(self) -> ComposeResult:
+        yield Label("Tools", classes="panel-label")
         for label, tool_type in _TOOL_LABELS:
             yield Button(label, id=f"tool-{tool_type.name.lower()}", compact=True)
 

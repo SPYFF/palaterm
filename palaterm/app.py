@@ -92,9 +92,11 @@ class PalatermApp(App):
         height: 1;
     }
     .panel-label {
+        width: 100%;
         height: 1;
-        padding: 0 1;
+        padding: 0;
         text-style: dim;
+        text-align: center;
     }
     """
 

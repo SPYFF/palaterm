@@ -5,7 +5,7 @@ from __future__ import annotations
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.message import Message
-from textual.widgets import Button
+from textual.widgets import Button, Label
 
 from ...tools import SelectMode
 
@@ -31,6 +31,7 @@ class SelectModePanel(Vertical):
         super().__init__(classes="panel")
 
     def compose(self) -> ComposeResult:
+        yield Label("Select", classes="panel-label")
         yield Button("Full", id="mode-full", compact=True)
         yield Button("Part", id="mode-partial", compact=True)
 
