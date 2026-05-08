@@ -6,6 +6,7 @@ from .status_bar import StatusBar
 from .panels import (
     AlignCell,
     BorderStylePanel,
+    ColorToolbar,
     EndingButton,
     LayerPanel,
     LineEndingsPanel,
@@ -29,4 +30,5 @@ __all__ = [
     "TextAlignPanel", "AlignCell",
     "ShapeAlignPanel",
     "LayerPanel",
+    "ColorToolbar",
 ]

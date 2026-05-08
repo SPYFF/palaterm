@@ -15,7 +15,7 @@ from .serialization import load_canvas, save_canvas
 from .models import CharSet, EndingStyle, HAlign, LineShape, LineStyle, RectangleShape, TextShape, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, ToolType
 from .widgets import (
-    AlignCell, BorderStylePanel, CanvasWidget, EndingButton,
+    AlignCell, BorderStylePanel, CanvasWidget, ColorToolbar, EndingButton,
     FilePathModal, LayerPanel, LineEndingsPanel, LineStylePanel,
     SelectModePanel, ShapeAlignPanel, StatusBar, TextAlignPanel, ToolPicker,
 )
@@ -73,6 +73,10 @@ class PalatermApp(App):
     }
     #sidebar > * {
         margin-bottom: 1;
+    }
+    #sidebar-spacer {
+        height: 1fr;
+        margin: 0;
     }
     .panel {
         width: 100%;
@@ -147,7 +151,9 @@ class PalatermApp(App):
             yield LineEndingsPanel()
             yield TextAlignPanel()
             yield ShapeAlignPanel()
+            yield Vertical(id="sidebar-spacer")
             yield LayerPanel()
+            yield ColorToolbar()
         yield CanvasWidget()
         yield StatusBar()
 
@@ -274,6 +280,18 @@ class PalatermApp(App):
                 for s, b in zip(shapes, bounds):
                     s.move(0, target - b.bottom)
         cw.refresh()
+
+    def on_color_toolbar_color_changed(self, event: ColorToolbar.ColorChanged) -> None:
+        cw = self.canvas_widget
+        tool = cw.tool
+        if not isinstance(tool, SelectTool) or not tool.selected:
+            return
+        old = [(s, {"fg": s.fg}) for s in tool.selected]
+        for s in tool.selected:
+            s.fg = event.color
+        self.history.push(TransformShapes(old))
+        cw.refresh()
+        self._update_panels()
 
     def on_layer_panel_layer_action(self, event: LayerPanel.LayerAction) -> None:
         self.action_layer(event.action)

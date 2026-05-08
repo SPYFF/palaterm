@@ -18,6 +18,14 @@ def _enum_str(e) -> str:
     return e.name.lower()
 
 
+def _add_colors(d: dict, s) -> dict:
+    if s.fg is not None:
+        d["fg"] = s.fg
+    if s.bg is not None:
+        d["bg"] = s.bg
+    return d
+
+
 def _serialize_rectangle(s: RectangleShape) -> dict:
     d = {
         "type": "rectangle",
@@ -29,11 +37,11 @@ def _serialize_rectangle(s: RectangleShape) -> dict:
     }
     if s.rect_f is not None:
         d["rect_f"] = list(s.rect_f)
-    return d
+    return _add_colors(d, s)
 
 
 def _serialize_text(s: TextShape) -> dict:
-    return {
+    d = {
         "type": "text",
         "id": s.id,
         "left": s.rect.left, "top": s.rect.top,
@@ -44,6 +52,7 @@ def _serialize_text(s: TextShape) -> dict:
         "halign": _enum_str(s.halign),
         "valign": _enum_str(s.valign),
     }
+    return _add_colors(d, s)
 
 
 def _serialize_line(s: LineShape) -> dict:
@@ -67,7 +76,7 @@ def _serialize_line(s: LineShape) -> dict:
         d["start_sub"] = list(s.start_sub)
     if s.end_sub:
         d["end_sub"] = list(s.end_sub)
-    return d
+    return _add_colors(d, s)
 
 
 _SERIALIZERS = {
@@ -87,6 +96,11 @@ def _serialize_connector(c: Connector) -> dict:
     }
 
 
+def _apply_colors(s, d: dict) -> None:
+    s.fg = d.get("fg")
+    s.bg = d.get("bg")
+
+
 def _deserialize_rectangle(d: dict) -> RectangleShape:
     s = RectangleShape(
         Rect(d["left"], d["top"], d["width"], d["height"]),
@@ -97,6 +111,7 @@ def _deserialize_rectangle(d: dict) -> RectangleShape:
         s.id = d["id"]
     if "rect_f" in d:
         s.rect_f = tuple(d["rect_f"])
+    _apply_colors(s, d)
     return s
 
 
@@ -111,6 +126,7 @@ def _deserialize_text(d: dict) -> TextShape:
     )
     if "id" in d:
         s.id = d["id"]
+    _apply_colors(s, d)
     return s
 
 
@@ -133,6 +149,7 @@ def _deserialize_line(d: dict) -> LineShape:
         s.start_sub = tuple(d["start_sub"])
     if "end_sub" in d:
         s.end_sub = tuple(d["end_sub"])
+    _apply_colors(s, d)
     s._recompute()
     return s
 
@@ -163,7 +180,7 @@ def save_canvas(canvas: Canvas, path: Path, charset: CharSet = CharSet.UNICODE) 
             shapes.append(serializer(shape))
     connectors = [_serialize_connector(c) for c in canvas.connector_mgr.connectors]
     data = {
-        "version": 2,
+        "version": 3,
         "charset": _enum_str(charset),
         "shapes": shapes,
         "connectors": connectors,

@@ -44,6 +44,14 @@ class FrameRenderer:
 
         cells = self.canvas.render_region(viewport, charset)
 
+        cell_styles: dict[tuple[int, int], RichStyle] = {}
+        for shape in self.canvas.shapes:
+            if shape.fg is None and shape.bg is None:
+                continue
+            shape_style = RichStyle(color=shape.fg, bgcolor=shape.bg)
+            for pos in shape.render(charset):
+                cell_styles[pos] = shape_style
+
         highlight_cells: dict[tuple[int, int], str] = {}
         handle_cells: set[tuple[int, int]] = set()
         snap_edge_cells: set[tuple[int, int]] = set()
@@ -79,7 +87,7 @@ class FrameRenderer:
             else:
                 sel_braille = braille_rect(sel_rect.left, sel_rect.top, sel_rect.right, sel_rect.bottom, charset)
 
-        self._cache = (cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells)
+        self._cache = (cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells, cell_styles)
         return self._cache
 
     def _get_edge_cells(self, snap_result) -> set[tuple[int, int]]:
@@ -107,7 +115,7 @@ class FrameRenderer:
 
     def render_line(self, y: int, viewport: Rect, tool: DrawTool | SelectTool | None, base_style: RichStyle,
                     charset: CharSet = CharSet.UNICODE) -> Strip:
-        cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells = self._ensure_cache(
+        cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells, cell_styles = self._ensure_cache(
             viewport, tool, base_style, charset
         )
         row = y + viewport.top
@@ -158,6 +166,8 @@ class FrameRenderer:
                 segments.append(Segment(ch, snap_style))
             elif pos in highlight_cells:
                 segments.append(Segment(ch, highlight_styles[highlight_cells[pos]]))
+            elif pos in cell_styles:
+                segments.append(Segment(ch, base_style + cell_styles[pos]))
             else:
                 segments.append(Segment(ch, base_style))
         return Strip(segments)

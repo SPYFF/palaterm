@@ -20,7 +20,6 @@ class LayerPanel(Vertical):
 
     DEFAULT_CSS = """
     LayerPanel {
-        dock: bottom;
         height: auto;
     }
     LayerPanel Button {

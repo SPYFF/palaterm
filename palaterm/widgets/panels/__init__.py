@@ -8,6 +8,7 @@ from .line_endings import LineEndingsPanel, EndingButton
 from .text_align import TextAlignPanel, AlignCell
 from .shape_align import ShapeAlignPanel
 from .layer import LayerPanel
+from .color_toolbar import ColorToolbar
 
 __all__ = [
     "ToolPicker",
@@ -18,4 +19,5 @@ __all__ = [
     "TextAlignPanel", "AlignCell",
     "ShapeAlignPanel",
     "LayerPanel",
+    "ColorToolbar",
 ]

@@ -32,6 +32,8 @@ class Shape(ABC):
 
     def __init__(self) -> None:
         self.id: str = _uuid.uuid4().hex[:8]
+        self.fg: str | None = None
+        self.bg: str | None = None
 
     @property
     @abstractmethod
