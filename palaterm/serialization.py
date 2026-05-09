@@ -1,4 +1,11 @@
-"""Canvas serialization to/from JSON."""
+"""Canvas serialization to/from JSON.
+
+The on-disk format is git-friendly: each shape and connector is emitted on a
+single line so that small edits produce small, line-localized diffs. Default
+attribute values are omitted at write time and supplied at read time. Loaders
+are backward-compatible with the older multi-line, defaults-included format
+(version 4).
+"""
 
 from __future__ import annotations
 
@@ -6,7 +13,7 @@ import json
 from pathlib import Path
 
 from .canvas import Canvas
-from .connectors import Anchor, Connector, ConnectorManager, Side
+from .connectors import Anchor, Connector, Side
 from .geometry import Point, Rect
 from .models import (
     BorderStyle, BoxShape, CharSet, EndingStyle, FillStyle, HAlign, VAlign, LineStyle,
@@ -14,8 +21,44 @@ from .models import (
 )
 
 
+# --- defaults (omitted at save, restored at load) ----------------------------
+#
+# Keys here mirror the JSON field names. A serialized shape only includes a
+# key when its value differs from the default. Loaders use ``dict.get(key,
+# default)`` so older files (which always wrote these keys) still load fine.
+
+_BOX_DEFAULTS: dict[str, object] = {
+    "border": "light",
+    "fill":   "none",
+    "text":   "",
+    "halign": "left",
+    "valign": "top",
+}
+
+_LINE_DEFAULTS: dict[str, object] = {
+    "border":       "light",
+    "line_style":   "orthogonal",
+    "start_ending": "none",
+    "end_ending":   "none",
+}
+
+_CONNECTOR_DEFAULTS: dict[str, object] = {
+    # Connectors don't have meaningful "default" values today: every field
+    # carries information. Defined here for symmetry with the shape dicts;
+    # populate if a default ever emerges.
+}
+
+
 def _enum_str(e) -> str:
     return e.name.lower()
+
+
+def _drop_defaults(d: dict, defaults: dict[str, object]) -> dict:
+    """Remove keys whose value equals the default for that field."""
+    return {k: v for k, v in d.items() if defaults.get(k, _MISSING) != v}
+
+
+_MISSING = object()
 
 
 def _add_colors(d: dict, s) -> dict:
@@ -27,7 +70,7 @@ def _add_colors(d: dict, s) -> dict:
 
 
 def _serialize_box(s: BoxShape) -> dict:
-    d = {
+    d: dict = {
         "type": "box",
         "id": s.id,
         "left": s.rect.left, "top": s.rect.top,
@@ -40,31 +83,31 @@ def _serialize_box(s: BoxShape) -> dict:
     }
     if s.rect_f is not None:
         d["rect_f"] = list(s.rect_f)
-    return _add_colors(d, s)
+    _add_colors(d, s)
+    return _drop_defaults(d, _BOX_DEFAULTS)
 
 
 def _serialize_line(s: LineShape) -> dict:
-    d = {
+    d: dict = {
         "type": "line",
         "id": s.id,
         "start_col": s.start.col, "start_row": s.start.row,
         "end_col": s.end.col, "end_row": s.end.row,
         "border": _enum_str(s.border),
         "line_style": _enum_str(s.line_style),
+        "start_ending": _enum_str(s.start_ending),
+        "end_ending": _enum_str(s.end_ending),
     }
     if s.start_side:
         d["start_side"] = s.start_side
     if s.end_side:
         d["end_side"] = s.end_side
-    if s.start_ending != EndingStyle.NONE:
-        d["start_ending"] = _enum_str(s.start_ending)
-    if s.end_ending != EndingStyle.NONE:
-        d["end_ending"] = _enum_str(s.end_ending)
     if s.start_sub:
         d["start_sub"] = list(s.start_sub)
     if s.end_sub:
         d["end_sub"] = list(s.end_sub)
-    return _add_colors(d, s)
+    _add_colors(d, s)
+    return _drop_defaults(d, _LINE_DEFAULTS)
 
 
 _SERIALIZERS = {
@@ -74,13 +117,14 @@ _SERIALIZERS = {
 
 
 def _serialize_connector(c: Connector) -> dict:
-    return {
+    d = {
         "line_id": c.line_id,
         "anchor": c.anchor.name.lower(),
         "target_id": c.target_id,
         "side": c.side.name.lower(),
         "ratio": c.ratio,
     }
+    return _drop_defaults(d, _CONNECTOR_DEFAULTS)
 
 
 def _apply_colors(s, d: dict) -> None:
@@ -91,11 +135,11 @@ def _apply_colors(s, d: dict) -> None:
 def _deserialize_box(d: dict) -> BoxShape:
     s = BoxShape(
         Rect(d["left"], d["top"], d["width"], d["height"]),
-        text=d.get("text", ""),
-        border=BorderStyle[d["border"].upper()],
-        fill=FillStyle[d.get("fill", "none").upper()],
-        halign=HAlign[d.get("halign", "left").upper()],
-        valign=VAlign[d.get("valign", "top").upper()],
+        text=d.get("text", _BOX_DEFAULTS["text"]),
+        border=BorderStyle[d.get("border", _BOX_DEFAULTS["border"]).upper()],
+        fill=FillStyle[d.get("fill", _BOX_DEFAULTS["fill"]).upper()],
+        halign=HAlign[d.get("halign", _BOX_DEFAULTS["halign"]).upper()],
+        valign=VAlign[d.get("valign", _BOX_DEFAULTS["valign"]).upper()],
     )
     if "id" in d:
         s.id = d["id"]
@@ -109,10 +153,10 @@ def _deserialize_line(d: dict) -> LineShape:
     s = LineShape(
         Point(d["start_col"], d["start_row"]),
         Point(d["end_col"], d["end_row"]),
-        border=BorderStyle[d["border"].upper()],
-        line_style=LineStyle[d.get("line_style", "orthogonal").upper()],
-        start_ending=EndingStyle[d.get("start_ending", "none").upper()],
-        end_ending=EndingStyle[d.get("end_ending", "none").upper()],
+        border=BorderStyle[d.get("border", _LINE_DEFAULTS["border"]).upper()],
+        line_style=LineStyle[d.get("line_style", _LINE_DEFAULTS["line_style"]).upper()],
+        start_ending=EndingStyle[d.get("start_ending", _LINE_DEFAULTS["start_ending"]).upper()],
+        end_ending=EndingStyle[d.get("end_ending", _LINE_DEFAULTS["end_ending"]).upper()],
     )
     if "id" in d:
         s.id = d["id"]
@@ -145,25 +189,53 @@ _DESERIALIZERS = {
 }
 
 
+def _emit_jsonl_array(items: list[dict]) -> str:
+    """Render a list of dicts as one-element-per-line JSON.
+
+    Output looks like:
+
+        [
+          {"a": 1},
+          {"b": 2}
+        ]
+
+    Keeps shape/connector edits as one-line diffs while leaving the outer
+    document readable. Empty lists collapse to ``[]`` so trailing-comma
+    issues don't arise.
+    """
+    if not items:
+        return "[]"
+    body = ",\n    ".join(json.dumps(item, separators=(",", ":")) for item in items)
+    return "[\n    " + body + "\n  ]"
+
+
 def save_canvas(canvas: Canvas, path: Path, charset: CharSet = CharSet.UNICODE) -> None:
-    """Serialize all shapes to a JSON file."""
+    """Serialize all shapes to a JSON file in the compact, git-friendly format."""
     shapes = []
     for shape in canvas.shapes:
         serializer = _SERIALIZERS.get(type(shape))
         if serializer:
             shapes.append(serializer(shape))
     connectors = [_serialize_connector(c) for c in canvas.connector_mgr.connectors]
-    data = {
-        "version": 4,
-        "charset": _enum_str(charset),
-        "shapes": shapes,
-        "connectors": connectors,
-    }
-    path.write_text(json.dumps(data, indent=2))
+
+    parts = [
+        "{",
+        f'  "version": 5,',
+        f'  "charset": {json.dumps(_enum_str(charset))},',
+        f'  "shapes": {_emit_jsonl_array(shapes)},',
+        f'  "connectors": {_emit_jsonl_array(connectors)}',
+        "}",
+        "",
+    ]
+    path.write_text("\n".join(parts))
 
 
 def load_canvas(path: Path) -> tuple[Canvas, CharSet]:
-    """Deserialize shapes from a JSON file. Returns (canvas, charset)."""
+    """Deserialize shapes from a JSON file. Returns (canvas, charset).
+
+    Accepts both v4 (multi-line, defaults-always-present) and v5 (compact,
+    defaults-omitted) files.
+    """
     data = json.loads(path.read_text())
     canvas = Canvas()
     for d in data.get("shapes", []):
