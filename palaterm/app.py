@@ -9,7 +9,7 @@ from textual.binding import Binding
 from textual.containers import Vertical
 from textual.events import MouseUp
 
-from .commands import AddShape, CommandHistory, MoveShapes, RemoveShapes, TransformShapes
+from .commands import AddShape, AddShapes, CommandHistory, MoveShapes, RemoveShapes, TransformShapes
 from .controllers import PanelController, ToolController
 from .serialization import load_canvas, save_canvas
 from .models import CharSet, EndingStyle, HAlign, LineShape, LineStyle, RectangleShape, TextShape, VAlign
@@ -128,6 +128,9 @@ class PalatermApp(App):
         Binding("A", "cycle_valign", "V-Align", priority=True),
         Binding("ctrl+z", "undo", "Undo", priority=True),
         Binding("ctrl+y", "redo", "Redo", priority=True),
+        Binding("ctrl+c", "copy", "Copy"),
+        Binding("ctrl+x", "cut", "Cut"),
+        Binding("ctrl+v", "paste", "Paste"),
         Binding("up", "scroll('up')", "Scroll Up", show=False),
         Binding("down", "scroll('down')", "Scroll Down", show=False),
         Binding("left", "scroll('left')", "Scroll Left", show=False),
@@ -141,6 +144,8 @@ class PalatermApp(App):
         self._panel_ctrl: PanelController | None = None
         self.history = CommandHistory()
         self._file_path: str | None = None
+        self._clipboard: list = []
+        self._paste_count: int = 0
 
     def compose(self) -> ComposeResult:
         with Vertical(id="sidebar"):
@@ -467,7 +472,86 @@ class PalatermApp(App):
             self.canvas_widget.refresh()
             self._update_status()
 
+    def action_copy(self) -> None:
+        import copy, uuid
+        cw = self.canvas_widget
+        if not isinstance(cw.tool, SelectTool) or not cw.tool.selected:
+            return
+        self._clipboard = []
+        for s in cw.tool.selected:
+            clone = copy.deepcopy(s)
+            clone.id = uuid.uuid4().hex[:8]
+            self._clipboard.append((s.id, clone))
+        self._paste_count = 0
+
+    def action_cut(self) -> None:
+        cw = self.canvas_widget
+        if not isinstance(cw.tool, SelectTool) or not cw.tool.selected:
+            return
+        self.action_copy()
+        cmd = RemoveShapes(cw.canvas, cw.tool.selected)
+        self.history.execute(cmd)
+        cw.tool.selected = []
+        cw.refresh()
+        self._update_status()
+
+    def action_paste(self) -> None:
+        import copy, uuid
+        from .connectors import Connector
+
+        if not self._clipboard:
+            return
+
+        cw = self.canvas_widget
+        self._paste_count += 1
+
+        # Clone shapes with new IDs and offset position
+        id_map: dict[str, str] = {}
+        new_shapes = []
+        for orig_id, stored in self._clipboard:
+            clone = copy.deepcopy(stored)
+            clone.id = uuid.uuid4().hex[:8]
+            clone.move(2 * self._paste_count, 1 * self._paste_count)
+            id_map[stored.id] = clone.id
+            new_shapes.append(clone)
+
+        # Remap connectors that are internal to the copied group
+        copied_orig_ids = {orig_id for orig_id, _ in self._clipboard}
+        new_connectors = self._remap_connectors(cw.canvas, copied_orig_ids, id_map)
+
+        cmd = AddShapes(cw.canvas, new_shapes, new_connectors)
+        self.history.execute(cmd)
+
+        # Select the pasted shapes
+        if not isinstance(cw.tool, SelectTool):
+            self._switch_tool(ToolType.SELECT)
+        cw.tool.selected = new_shapes
+        cw.refresh()
+        self._update_panels()
+        self._update_status()
+
     # --- Internal ---
+
+    def _remap_connectors(self, canvas, copied_orig_ids: set[str], id_map: dict[str, str]):
+        """Create new connectors for lines whose targets are both in the copied group."""
+        from .connectors import Connector
+
+        new_connectors: list[Connector] = []
+        for orig_id, stored in self._clipboard:
+            if not isinstance(stored, LineShape):
+                continue
+            for conn in canvas.connector_mgr.get_by_line(orig_id):
+                if conn.target_id not in copied_orig_ids:
+                    continue
+                target_stored_id = next(s.id for oid, s in self._clipboard if oid == conn.target_id)
+                new_connectors.append(Connector(
+                    line_id=id_map[stored.id],
+                    anchor=conn.anchor,
+                    target_id=id_map[target_stored_id],
+                    side=conn.side,
+                    ratio=conn.ratio,
+                ))
+        return new_connectors
 
     def _update_panels(self) -> None:
         if self._panel_ctrl:

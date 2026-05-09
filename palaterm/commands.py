@@ -168,6 +168,28 @@ class MoveShapes:
                 line._recompute()
 
 
+class AddShapes:
+    """Add multiple shapes (and optionally connectors) in one undoable operation."""
+
+    def __init__(self, canvas: Canvas, shapes: list[Shape], connectors: list[Connector] | None = None) -> None:
+        self._canvas = canvas
+        self._shapes = list(shapes)
+        self._connectors = list(connectors) if connectors else []
+
+    def execute(self) -> None:
+        for s in self._shapes:
+            if s not in self._canvas.shapes:
+                self._canvas.shapes.append(s)
+        for c in self._connectors:
+            self._canvas.connector_mgr.add(c)
+
+    def undo(self) -> None:
+        ids = {s.id for s in self._shapes}
+        for c in self._connectors:
+            self._canvas.connector_mgr.remove_by_line_anchor(c.line_id, c.anchor)
+        self._canvas.shapes = [s for s in self._canvas.shapes if s.id not in ids]
+
+
 class TransformShapes:
     """Records before/after geometry for any shape transform (resize, etc.)."""
 
