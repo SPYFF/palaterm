@@ -110,3 +110,52 @@ class FilePathModal(ModalScreen[str | None]):
 
     def action_cancel(self) -> None:
         self.dismiss(None)
+
+
+class ConfirmModal(ModalScreen[bool]):
+    """Yes/No confirmation modal. Dismisses with True for yes, False for no."""
+
+    DEFAULT_CSS = """
+    ConfirmModal {
+        align: center middle;
+    }
+    ConfirmModal > Vertical {
+        width: 50;
+        height: auto;
+        border: thick $accent;
+        background: $surface;
+        padding: 1;
+    }
+    ConfirmModal #message {
+        height: auto;
+    }
+    ConfirmModal #hint {
+        height: 1;
+        color: $text-muted;
+        margin-top: 1;
+    }
+    """
+
+    BINDINGS = [
+        Binding("y", "yes", "Yes", priority=True),
+        Binding("Y", "yes", "Yes", priority=True),
+        Binding("enter", "yes", "Yes", priority=True),
+        Binding("n", "no", "No", priority=True),
+        Binding("N", "no", "No", priority=True),
+        Binding("escape", "no", "Cancel", priority=True),
+    ]
+
+    def __init__(self, message: str) -> None:
+        super().__init__()
+        self._message = message
+
+    def compose(self) -> ComposeResult:
+        with Vertical():
+            yield Label(self._message, id="message")
+            yield Label("y/Enter: yes | n/Esc: no", id="hint")
+
+    def action_yes(self) -> None:
+        self.dismiss(True)
+
+    def action_no(self) -> None:
+        self.dismiss(False)

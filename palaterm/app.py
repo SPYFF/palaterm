@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 import os
+import sys
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -15,7 +18,7 @@ from .serialization import load_canvas, save_canvas
 from .models import BoxShape, CharSet, EndingStyle, HAlign, LineShape, LineStyle, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, ToolType
 from .widgets import (
-    AlignCell, BorderStylePanel, CanvasWidget, ColorToolbar, EndingButton,
+    AlignCell, BorderStylePanel, CanvasWidget, ColorToolbar, ConfirmModal, EndingButton,
     FilePathModal, LayerPanel, LineEndingsPanel, LineStylePanel,
     SelectModePanel, ShapeAlignPanel, StatusBar, TextAlignPanel, ToolPicker,
 )
@@ -131,13 +134,14 @@ class PalatermApp(App):
         Binding("ctrl+c", "copy", "Copy"),
         Binding("ctrl+x", "cut", "Cut"),
         Binding("ctrl+v", "paste", "Paste"),
+        Binding("escape", "deselect", "Deselect", show=False),
         Binding("up", "scroll('up')", "Scroll Up", show=False),
         Binding("down", "scroll('down')", "Scroll Down", show=False),
         Binding("left", "scroll('left')", "Scroll Left", show=False),
         Binding("right", "scroll('right')", "Scroll Right", show=False),
     ]
 
-    def __init__(self) -> None:
+    def __init__(self, initial_file: str | None = None) -> None:
         super().__init__()
         self.theme = "textual-light" if _terminal_is_light() else "textual-dark"
         self._tool_ctrl = ToolController()
@@ -146,6 +150,7 @@ class PalatermApp(App):
         self._file_path: str | None = None
         self._clipboard: list = []
         self._paste_count: int = 0
+        self._initial_file = initial_file
 
     def compose(self) -> ComposeResult:
         with Vertical(id="sidebar"):
@@ -166,6 +171,9 @@ class PalatermApp(App):
         self._panel_ctrl = PanelController(self.query_one)
         self._canvas_widget = self.query_one(CanvasWidget)
         self._status_bar = self.query_one(StatusBar)
+        if self._initial_file:
+            self._do_open(self._initial_file)
+        self._update_terminal_title()
 
     @property
     def canvas_widget(self) -> CanvasWidget:
@@ -340,6 +348,33 @@ class PalatermApp(App):
             cw.refresh()
             self._update_status()
 
+    def action_deselect(self) -> None:
+        cw = self.canvas_widget
+        if cw._editing:
+            return
+        if isinstance(cw.tool, SelectTool) and cw.tool.selected:
+            cw.tool.selected = []
+            cw.refresh()
+            self._update_panels()
+            self._update_status()
+
+    def action_quit(self) -> None:
+        """Quit, prompting first if there are unsaved changes."""
+        if self.canvas_widget._editing:
+            return
+        if not self.history.is_dirty:
+            self.exit()
+            return
+
+        def on_dismiss(confirmed: bool) -> None:
+            if confirmed:
+                self.exit()
+
+        self.push_screen(
+            ConfirmModal("Discard unsaved changes and quit?"),
+            on_dismiss,
+        )
+
     def action_layer(self, direction: str) -> None:
         cw = self.canvas_widget
         if not isinstance(cw.tool, SelectTool) or not cw.tool.selected:
@@ -398,6 +433,8 @@ class PalatermApp(App):
 
     def _do_save(self, path: str) -> None:
         from pathlib import Path
+        if not path.lower().endswith(".palaterm"):
+            path = path + ".palaterm"
         try:
             save_canvas(self.canvas_widget.canvas, Path(path), self.canvas_widget.charset)
             self._file_path = path
@@ -411,21 +448,33 @@ class PalatermApp(App):
         from pathlib import Path
         try:
             canvas, charset = load_canvas(Path(path))
-            cw = self.canvas_widget
-            cw.canvas = canvas
-            cw._renderer.canvas = canvas
-            cw.charset = charset
-            self._status_bar.set_charset(charset)
-            self.query_one(LineEndingsPanel).set_charset(charset)
-            if isinstance(cw.tool, SelectTool):
-                cw.tool.selected = []
-            self._file_path = path
-            self.history = CommandHistory()
-            cw.refresh()
-            self.notify(f"Opened: {path}", timeout=2)
-            self._update_status()
-        except (OSError, Exception) as e:
+        except FileNotFoundError:
+            self.notify(f"No such file: {path}", severity="error", timeout=3)
+            return
+        except PermissionError:
+            self.notify(f"Permission denied: {path}", severity="error", timeout=3)
+            return
+        except json.JSONDecodeError as e:
+            self.notify(f"Not a valid .palaterm file ({e.msg})",
+                        severity="error", timeout=3)
+            return
+        except OSError as e:
             self.notify(f"Open failed: {e}", severity="error", timeout=3)
+            return
+
+        cw = self.canvas_widget
+        cw.canvas = canvas
+        cw._renderer.canvas = canvas
+        cw.charset = charset
+        self._status_bar.set_charset(charset)
+        self.query_one(LineEndingsPanel).set_charset(charset)
+        if isinstance(cw.tool, SelectTool):
+            cw.tool.selected = []
+        self._file_path = path
+        self.history = CommandHistory()
+        cw.refresh()
+        self.notify(f"Opened: {path}", timeout=2)
+        self._update_status()
 
     def action_scroll(self, direction: str) -> None:
         cw = self.canvas_widget
@@ -607,10 +656,61 @@ class PalatermApp(App):
 
         self._update_panels()
         self._status_bar.update(left, center, right)
+        self._update_terminal_title()
+
+    def _update_terminal_title(self) -> None:
+        """Write OSC 0 to the terminal so its title bar reflects the open file.
+
+        Textual's ``App.title`` reactive only feeds the in-app ``Header``
+        widget; without one mounted, the terminal title bar stays
+        whatever the surrounding shell put there. We write the OSC
+        escape directly so window-manager / tab labels show the
+        filename and dirty state. Output goes to ``sys.__stdout__``
+        (the real terminal) — Textual replaces ``sys.stdout`` while
+        the app is running.
+        """
+        from pathlib import Path
+        if self._file_path:
+            name = Path(self._file_path).name
+        else:
+            name = "[new]"
+        dirty = "● " if self.history.is_dirty else ""
+        try:
+            sys.__stdout__.write(f"\x1b]0;{dirty}palaterm — {name}\x07")
+            sys.__stdout__.flush()
+        except (OSError, ValueError):
+            pass
+
+    def on_unmount(self) -> None:
+        """Reset the terminal title to a sensible default on exit."""
+        try:
+            sys.__stdout__.write("\x1b]0;\x07")
+            sys.__stdout__.flush()
+        except (OSError, ValueError):
+            pass
 
 
 def main() -> None:
-    app = PalatermApp()
+    try:
+        from importlib.metadata import version as _pkg_version
+        version = _pkg_version("palaterm")
+    except Exception:
+        version = "unknown"
+
+    parser = argparse.ArgumentParser(
+        prog="palaterm",
+        description="A TUI drawing application.",
+    )
+    parser.add_argument(
+        "file", nargs="?",
+        help="path to a .palaterm file to open at startup",
+    )
+    parser.add_argument(
+        "--version", "-V", action="version", version=f"palaterm {version}",
+    )
+    args = parser.parse_args()
+
+    app = PalatermApp(initial_file=args.file)
     app.run()
 
 

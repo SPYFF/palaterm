@@ -1,7 +1,7 @@
 """UI widgets for Palaterm."""
 
 from .canvas import CanvasWidget
-from .modals import FilePathModal, TextEditModal
+from .modals import ConfirmModal, FilePathModal, TextEditModal
 from .status_bar import StatusBar
 from .panels import (
     AlignCell,
@@ -19,6 +19,7 @@ from .panels import (
 
 __all__ = [
     "CanvasWidget",
+    "ConfirmModal",
     "FilePathModal",
     "StatusBar",
     "TextEditModal",
