@@ -8,6 +8,7 @@ from .panels import (
     BorderStylePanel,
     ColorToolbar,
     EndingButton,
+    ExportToolbar,
     LayerPanel,
     LineEndingsPanel,
     LineStylePanel,
@@ -32,4 +33,5 @@ __all__ = [
     "ShapeAlignPanel",
     "LayerPanel",
     "ColorToolbar",
+    "ExportToolbar",
 ]

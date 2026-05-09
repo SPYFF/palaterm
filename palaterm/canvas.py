@@ -104,3 +104,43 @@ class Canvas:
             line = "".join(cells.get((col, row), " ") for col in range(min_col, max_col + 1))
             lines.append(line.rstrip())
         return "\n".join(lines)
+
+    def render_styled(self, shapes: list[Shape] | None = None,
+                      charset: CharSet = CharSet.UNICODE
+                      ) -> tuple[Rect, dict[tuple[int, int], tuple[str, str | None, str | None]]]:
+        """Composite shapes into a per-cell ``(char, fg, bg)`` grid.
+
+        Returns ``(bounding_rect, cells)``. Mirrors :meth:`export_to_text`'s
+        bounds-auto-cropping but keeps color information per cell.
+        Background runs are produced where ``shape.bg`` is set; foreground
+        always reflects ``shape.fg``. Crossing resolution applies to the
+        char component only — the resolved char inherits the most recent
+        shape's colors.
+
+        Returns ``(Rect(0, 0, 0, 0), {})`` when there is nothing to render.
+        """
+        targets = shapes if shapes else self.shapes
+        if not targets:
+            return Rect(0, 0, 0, 0), {}
+
+        cells: dict[tuple[int, int], tuple[str, str | None, str | None]] = {}
+        for shape in targets:
+            fg, bg = shape.fg, shape.bg
+            for (col, row), ch in shape.render(charset).items():
+                existing = cells.get((col, row))
+                if existing and is_connectable(existing[0]) and is_connectable(ch):
+                    ch = resolve_crossing(existing[0], ch)
+                cells[(col, row)] = (ch, fg, bg)
+
+        if not cells:
+            return Rect(0, 0, 0, 0), {}
+
+        if charset == CharSet.ASCII:
+            cells = {pos: (to_ascii(ch), fg, bg) for pos, (ch, fg, bg) in cells.items()}
+
+        min_col = min(c for c, r in cells)
+        max_col = max(c for c, r in cells)
+        min_row = min(r for c, r in cells)
+        max_row = max(r for c, r in cells)
+        bound = Rect(min_col, min_row, max_col - min_col + 1, max_row - min_row + 1)
+        return bound, cells

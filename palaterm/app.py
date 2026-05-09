@@ -15,11 +15,12 @@ from textual.events import MouseUp
 from .commands import AddShape, AddShapes, CommandHistory, MoveShapes, RemoveShapes, TransformShapes
 from .controllers import PanelController, ToolController
 from .serialization import load_canvas, save_canvas
+from .exporters import export_html, export_svg
 from .models import BoxShape, CharSet, EndingStyle, HAlign, LineShape, LineStyle, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, ToolType
 from .widgets import (
     AlignCell, BorderStylePanel, CanvasWidget, ColorToolbar, ConfirmModal, EndingButton,
-    FilePathModal, LayerPanel, LineEndingsPanel, LineStylePanel,
+    ExportToolbar, FilePathModal, LayerPanel, LineEndingsPanel, LineStylePanel,
     SelectModePanel, ShapeAlignPanel, StatusBar, TextAlignPanel, ToolPicker,
 )
 
@@ -164,6 +165,7 @@ class PalatermApp(App):
             yield Vertical(id="sidebar-spacer")
             yield LayerPanel()
             yield ColorToolbar()
+            yield ExportToolbar()
         yield CanvasWidget()
         yield StatusBar()
 
@@ -384,16 +386,38 @@ class PalatermApp(App):
         cw.refresh()
 
     def action_export(self) -> None:
+        self._copy_export("text")
+
+    def on_export_toolbar_export_requested(self, event: ExportToolbar.ExportRequested) -> None:
+        self._copy_export(event.format)
+
+    def _copy_export(self, fmt: str) -> None:
+        """Render the canvas in ``fmt`` and copy to the system clipboard.
+
+        ``fmt`` is one of ``"text"``, ``"html"``, ``"svg"``. Selection is
+        respected: if SelectTool has shapes selected, only those are
+        exported; otherwise the whole canvas.
+        """
         import pyperclip
 
         cw = self.canvas_widget
         shapes = None
         if isinstance(cw.tool, SelectTool) and cw.tool.selected:
             shapes = cw.tool.selected
-        text = cw.canvas.export_to_text(shapes, cw.charset)
-        if text:
-            pyperclip.copy(text)
-            self.notify("Copied to clipboard!", timeout=2)
+
+        if fmt == "html":
+            out = export_html(cw.canvas, cw.charset, shapes)
+            label = "HTML"
+        elif fmt == "svg":
+            out = export_svg(cw.canvas, cw.charset, shapes)
+            label = "SVG"
+        else:
+            out = cw.canvas.export_to_text(shapes, cw.charset)
+            label = "text"
+
+        if out:
+            pyperclip.copy(out)
+            self.notify(f"Copied {label} to clipboard!", timeout=2)
 
     def action_save(self) -> None:
         if self._file_path:

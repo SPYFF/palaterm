@@ -9,6 +9,7 @@ from .text_align import TextAlignPanel, AlignCell
 from .shape_align import ShapeAlignPanel
 from .layer import LayerPanel
 from .color_toolbar import ColorToolbar
+from .export_toolbar import ExportToolbar
 
 __all__ = [
     "ToolPicker",
@@ -20,4 +21,5 @@ __all__ = [
     "ShapeAlignPanel",
     "LayerPanel",
     "ColorToolbar",
+    "ExportToolbar",
 ]
