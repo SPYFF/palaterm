@@ -60,9 +60,19 @@ class Canvas:
     def render_region(self, viewport: Rect, charset: CharSet = CharSet.UNICODE) -> dict[tuple[int, int], str]:
         """Composite all shapes within the viewport into a character dict."""
         cells: dict[tuple[int, int], str] = {}
+        v_left, v_top, v_right, v_bottom = (
+            viewport.left, viewport.top, viewport.right, viewport.bottom)
         for shape in self.shapes:
+            # Skip shapes whose bounding box doesn't intersect the viewport.
+            # `shape.render()` is expensive (it materializes every cell), so
+            # an AABB cull on the bound is much cheaper than rendering then
+            # filtering per-cell.
+            b = shape.bound
+            if (b.right < v_left or b.left > v_right
+                    or b.bottom < v_top or b.top > v_bottom):
+                continue
             for (col, row), ch in shape.render(charset).items():
-                if viewport.contains(col, row):
+                if v_left <= col <= v_right and v_top <= row <= v_bottom:
                     existing = cells.get((col, row))
                     if existing and is_connectable(existing) and is_connectable(ch):
                         cells[(col, row)] = resolve_crossing(existing, ch)
