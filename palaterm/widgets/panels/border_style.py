@@ -15,6 +15,7 @@ _STYLES = [
     ("╔", BorderStyle.DOUBLE),
     ("╭", BorderStyle.ROUNDED),
     ("⡏", BorderStyle.BRAILLE),
+    ("∅", BorderStyle.NONE),
 ]
 
 
@@ -41,8 +42,10 @@ class BorderStylePanel(Vertical):
     def compose(self) -> ComposeResult:
         yield Label("Border", classes="panel-label")
         with Horizontal():
-            for icon, style in _STYLES:
+            for icon, style in _STYLES[:-1]:
                 yield Button(icon, id=f"border-{style.name.lower()}", compact=True)
+        with Horizontal():
+            yield Button("∅", id="border-none", compact=True)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         for _, style in _STYLES:

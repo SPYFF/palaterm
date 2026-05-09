@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from ..geometry import Point, Rect
-from ..models import BorderStyle, EndingStyle, LineShape, LineStyle, RectangleShape, Shape, TextShape
+from ..models import BorderStyle, BoxShape, EndingStyle, LineShape, LineStyle, Shape
 from ..connectors import Anchor, Connector, find_snap
 
 
@@ -51,7 +51,7 @@ class RectangleTool(DrawTool):
         self._start_f: tuple[float, float] | None = None
 
     def _create_shape(self, start: Point) -> Shape:
-        return RectangleShape(Rect(start.col, start.row, 1, 1), border=self.border_style)
+        return BoxShape(Rect(start.col, start.row, 1, 1), border=self.border_style)
 
     def on_mouse_down(self, col: int, row: int, canvas, *, pointer_x: float | None = None,
                       pointer_y: float | None = None) -> Shape | None:
@@ -60,7 +60,7 @@ class RectangleTool(DrawTool):
                 and pointer_x is not None and pointer_y is not None):
             self._start_f = (pointer_x, pointer_y)
             shape = self._shape
-            if isinstance(shape, RectangleShape):
+            if isinstance(shape, BoxShape):
                 shape.resize_f(pointer_x, pointer_y, pointer_x, pointer_y)
         else:
             self._start_f = None
@@ -70,7 +70,7 @@ class RectangleTool(DrawTool):
                       pointer_y: float | None = None) -> None:
         if self._start_f is not None and pointer_x is not None and pointer_y is not None:
             shape = self._shape
-            if isinstance(shape, RectangleShape):
+            if isinstance(shape, BoxShape):
                 sx, sy = self._start_f
                 shape.resize_f(sx, sy, pointer_x, pointer_y)
                 return
@@ -80,7 +80,7 @@ class RectangleTool(DrawTool):
                     pointer_y: float | None = None) -> Shape | None:
         if self._start_f is not None and pointer_x is not None and pointer_y is not None:
             shape = self._shape
-            if isinstance(shape, RectangleShape):
+            if isinstance(shape, BoxShape):
                 sx, sy = self._start_f
                 shape.resize_f(sx, sy, pointer_x, pointer_y)
                 self._start_f = None
@@ -93,7 +93,7 @@ class RectangleTool(DrawTool):
 
 class TextTool(DrawTool):
     def _create_shape(self, start: Point) -> Shape:
-        return TextShape(Rect(start.col, start.row, 1, 1))
+        return BoxShape(Rect(start.col, start.row, 1, 1), border=BorderStyle.NONE)
 
 
 class LineTool(DrawTool):

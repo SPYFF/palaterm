@@ -5,7 +5,7 @@ from __future__ import annotations
 from enum import Enum, auto
 
 from ..geometry import Point, Rect
-from ..models import BorderStyle, LineShape, RectangleShape, RectShape, Shape
+from ..models import BorderStyle, BoxShape, LineShape, RectShape, Shape
 from ..connectors import Anchor, Connector, find_snap
 
 
@@ -112,7 +112,7 @@ class SelectTool:
                 case Handle.BOT_RIGHT:
                     self._resize_anchor = Point(b.left, b.top)
             # Precise float anchor for braille rectangles
-            if (isinstance(shape, RectangleShape) and shape.border == BorderStyle.BRAILLE
+            if (isinstance(shape, BoxShape) and shape.border == BorderStyle.BRAILLE
                     and shape.rect_f is not None):
                 lf, tf, rf, bf = shape.rect_f
                 anchor_map = {
@@ -178,7 +178,7 @@ class SelectTool:
                 shape.end = pt
                 shape.end_side = side_name
             shape._recompute()
-        elif (isinstance(shape, RectangleShape) and shape.border == BorderStyle.BRAILLE
+        elif (isinstance(shape, BoxShape) and shape.border == BorderStyle.BRAILLE
                 and self._resize_anchor_f is not None
                 and pointer_x is not None and pointer_y is not None):
             ax, ay = self._resize_anchor_f

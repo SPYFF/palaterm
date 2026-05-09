@@ -9,8 +9,8 @@ from .canvas import Canvas
 from .connectors import Anchor, Connector, ConnectorManager, Side
 from .geometry import Point, Rect
 from .models import (
-    BorderStyle, CharSet, EndingStyle, FillStyle, HAlign, VAlign, LineStyle,
-    RectangleShape, TextShape, LineShape,
+    BorderStyle, BoxShape, CharSet, EndingStyle, FillStyle, HAlign, VAlign, LineStyle,
+    LineShape,
 )
 
 
@@ -26,32 +26,20 @@ def _add_colors(d: dict, s) -> dict:
     return d
 
 
-def _serialize_rectangle(s: RectangleShape) -> dict:
+def _serialize_box(s: BoxShape) -> dict:
     d = {
-        "type": "rectangle",
+        "type": "box",
         "id": s.id,
         "left": s.rect.left, "top": s.rect.top,
         "width": s.rect.width, "height": s.rect.height,
         "border": _enum_str(s.border),
         "fill": _enum_str(s.fill),
-    }
-    if s.rect_f is not None:
-        d["rect_f"] = list(s.rect_f)
-    return _add_colors(d, s)
-
-
-def _serialize_text(s: TextShape) -> dict:
-    d = {
-        "type": "text",
-        "id": s.id,
-        "left": s.rect.left, "top": s.rect.top,
-        "width": s.rect.width, "height": s.rect.height,
-        "border": _enum_str(s.border),
-        "has_border": s.has_border,
         "text": s.text,
         "halign": _enum_str(s.halign),
         "valign": _enum_str(s.valign),
     }
+    if s.rect_f is not None:
+        d["rect_f"] = list(s.rect_f)
     return _add_colors(d, s)
 
 
@@ -80,8 +68,7 @@ def _serialize_line(s: LineShape) -> dict:
 
 
 _SERIALIZERS = {
-    RectangleShape: _serialize_rectangle,
-    TextShape: _serialize_text,
+    BoxShape: _serialize_box,
     LineShape: _serialize_line,
 }
 
@@ -101,31 +88,19 @@ def _apply_colors(s, d: dict) -> None:
     s.bg = d.get("bg")
 
 
-def _deserialize_rectangle(d: dict) -> RectangleShape:
-    s = RectangleShape(
-        Rect(d["left"], d["top"], d["width"], d["height"]),
-        border=BorderStyle[d["border"].upper()],
-        fill=FillStyle[d.get("fill", "none").upper()],
-    )
-    if "id" in d:
-        s.id = d["id"]
-    if "rect_f" in d:
-        s.rect_f = tuple(d["rect_f"])
-    _apply_colors(s, d)
-    return s
-
-
-def _deserialize_text(d: dict) -> TextShape:
-    s = TextShape(
+def _deserialize_box(d: dict) -> BoxShape:
+    s = BoxShape(
         Rect(d["left"], d["top"], d["width"], d["height"]),
         text=d.get("text", ""),
         border=BorderStyle[d["border"].upper()],
-        has_border=d.get("has_border", False),
+        fill=FillStyle[d.get("fill", "none").upper()],
         halign=HAlign[d.get("halign", "left").upper()],
         valign=VAlign[d.get("valign", "top").upper()],
     )
     if "id" in d:
         s.id = d["id"]
+    if "rect_f" in d:
+        s.rect_f = tuple(d["rect_f"])
     _apply_colors(s, d)
     return s
 
@@ -165,8 +140,7 @@ def _deserialize_connector(d: dict) -> Connector:
 
 
 _DESERIALIZERS = {
-    "rectangle": _deserialize_rectangle,
-    "text": _deserialize_text,
+    "box": _deserialize_box,
     "line": _deserialize_line,
 }
 
@@ -180,7 +154,7 @@ def save_canvas(canvas: Canvas, path: Path, charset: CharSet = CharSet.UNICODE) 
             shapes.append(serializer(shape))
     connectors = [_serialize_connector(c) for c in canvas.connector_mgr.connectors]
     data = {
-        "version": 3,
+        "version": 4,
         "charset": _enum_str(charset),
         "shapes": shapes,
         "connectors": connectors,
@@ -196,7 +170,6 @@ def load_canvas(path: Path) -> tuple[Canvas, CharSet]:
         deserializer = _DESERIALIZERS.get(d.get("type"))
         if deserializer:
             canvas.add_shape(deserializer(d))
-    # Load connectors (v2+)
     for d in data.get("connectors", []):
         canvas.connector_mgr.add(_deserialize_connector(d))
     charset = CharSet[data.get("charset", "unicode").upper()]

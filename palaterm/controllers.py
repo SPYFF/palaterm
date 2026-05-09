@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from .models import (
-    BorderStyle, EndingStyle, LineShape, LineStyle, TextShape,
+    BorderStyle, BoxShape, EndingStyle, LineShape, LineStyle,
 )
 from .tools import LineTool, RectangleTool, SelectTool, TextTool, ToolType
 from .widgets.panels import (
@@ -94,8 +94,8 @@ class PanelController:
                 if lines:
                     endings_panel.set_active(lines[0].start_ending, lines[0].end_ending)
 
-        # Text alignment: select with TextShape
-        text_shapes = [s for s in selected if isinstance(s, TextShape)]
+        # Text alignment: select with BoxShape that has text
+        text_shapes = [s for s in selected if isinstance(s, BoxShape) and s.text]
         text_panel = self._q(TextAlignPanel)
         text_panel.set_class(bool(text_shapes), "visible")
         if text_shapes:

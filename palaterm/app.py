@@ -12,7 +12,7 @@ from textual.events import MouseUp
 from .commands import AddShape, AddShapes, CommandHistory, MoveShapes, RemoveShapes, TransformShapes
 from .controllers import PanelController, ToolController
 from .serialization import load_canvas, save_canvas
-from .models import CharSet, EndingStyle, HAlign, LineShape, LineStyle, RectangleShape, TextShape, VAlign
+from .models import BoxShape, CharSet, EndingStyle, HAlign, LineShape, LineStyle, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, ToolType
 from .widgets import (
     AlignCell, BorderStylePanel, CanvasWidget, ColorToolbar, EndingButton,
@@ -245,7 +245,7 @@ class PalatermApp(App):
         if not isinstance(cw.tool, SelectTool):
             return
         for shape in cw.tool.selected:
-            if isinstance(shape, TextShape):
+            if isinstance(shape, BoxShape):
                 shape.halign = event.halign
                 shape.valign = event.valign
         cw.refresh()
@@ -446,7 +446,7 @@ class PalatermApp(App):
             return
         cycle = [HAlign.LEFT, HAlign.CENTER, HAlign.RIGHT]
         for shape in cw.tool.selected:
-            if isinstance(shape, TextShape):
+            if isinstance(shape, BoxShape) and shape.text:
                 shape.halign = cycle[(cycle.index(shape.halign) + 1) % 3]
         cw.refresh()
         self._update_panels()
@@ -457,7 +457,7 @@ class PalatermApp(App):
             return
         cycle = [VAlign.TOP, VAlign.MIDDLE, VAlign.BOTTOM]
         for shape in cw.tool.selected:
-            if isinstance(shape, TextShape):
+            if isinstance(shape, BoxShape) and shape.text:
                 shape.valign = cycle[(cycle.index(shape.valign) + 1) % 3]
         cw.refresh()
         self._update_panels()

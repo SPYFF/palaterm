@@ -4,6 +4,7 @@ from enum import Enum, auto
 
 
 class BorderStyle(Enum):
+    NONE = auto()
     LIGHT = auto()
     HEAVY = auto()
     DOUBLE = auto()

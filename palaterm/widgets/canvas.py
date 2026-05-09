@@ -13,7 +13,7 @@ from textual.widget import Widget
 from ..canvas import Canvas
 from ..geometry import Point, Rect
 from ..rendering import FrameRenderer
-from ..models import CharSet, LineShape, TextShape
+from ..models import BoxShape, CharSet, LineShape
 from ..tools import DrawTool, SelectTool, TextTool
 from .modals import TextEditModal
 
@@ -75,7 +75,7 @@ class CanvasWidget(Widget, can_focus=True):
         """
         return math.floor(pointer_x) + self._scroll_col, math.floor(pointer_y) + self._scroll_row
 
-    def open_text_editor(self, shape: TextShape) -> None:
+    def open_text_editor(self, shape: BoxShape) -> None:
         self._editing = True
 
         def on_dismiss(result: str | None) -> None:
@@ -111,7 +111,7 @@ class CanvasWidget(Widget, can_focus=True):
         now = time.monotonic()
         if isinstance(self.tool, SelectTool) and event.button == 1:
             hit = self.canvas.shape_at(col, row)
-            if (hit and isinstance(hit, TextShape) and
+            if (hit and isinstance(hit, BoxShape) and
                     now - self._last_click_time < 0.4 and
                     self._last_click_pos == (col, row)):
                 self.tool.selected = [hit]
@@ -168,7 +168,7 @@ class CanvasWidget(Widget, can_focus=True):
                                            pointer_x=px, pointer_y=py)
         else:
             result = self.tool.on_mouse_up(col, row, self.canvas, pointer_x=px, pointer_y=py)
-        if isinstance(self.tool, TextTool) and isinstance(result, TextShape):
+        if isinstance(self.tool, TextTool) and isinstance(result, BoxShape):
             self.open_text_editor(result)
         elif result and not isinstance(self.tool, SelectTool):
             self.post_message(self.ShapeCreated(result))

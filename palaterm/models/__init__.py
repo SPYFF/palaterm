@@ -9,9 +9,12 @@ from .enums import (
 )
 from .base import Shape, RectShape, render_border
 from .charset import CharSet, to_ascii, braille_rect, braille_rect_precise
-from .rectangle import RectangleShape
-from .text import TextShape
+from .box import BoxShape
 from .line import LineShape, _braille_line
+
+# Aliases for transition
+RectangleShape = BoxShape
+TextShape = BoxShape
 
 __all__ = [
     "BorderStyle", "BORDER_CHARS",
@@ -20,6 +23,7 @@ __all__ = [
     "HAlign", "VAlign",
     "LineStyle",
     "Shape", "RectShape",
+    "BoxShape",
     "RectangleShape",
     "TextShape",
     "LineShape",

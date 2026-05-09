@@ -110,13 +110,13 @@ def find_snap(col: int, row: int, shapes: list, exclude_id: str | None = None, m
     Only Rectangle and Text shapes are connectable.
     Returns None if no snap target found.
     """
-    from .models import RectangleShape, TextShape
+    from .models import BoxShape
 
     best: SnapResult | None = None
     best_dist = max_dist + 1
 
     for shape in shapes:
-        if not isinstance(shape, (RectangleShape, TextShape)):
+        if not isinstance(shape, BoxShape):
             continue
         if exclude_id and shape.id == exclude_id:
             continue
