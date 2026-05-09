@@ -1,10 +1,29 @@
 """Canvas serialization to/from JSON.
 
-The on-disk format is git-friendly: each shape and connector is emitted on a
-single line so that small edits produce small, line-localized diffs. Default
-attribute values are omitted at write time and supplied at read time. Loaders
-are backward-compatible with the older multi-line, defaults-included format
-(version 4).
+The on-disk format is git-friendly:
+  * One shape/connector per line for line-localized diffs.
+  * Default attribute values are omitted at write time.
+  * Keys are abbreviated to 1-2 chars on disk; the in-memory dicts and the
+    per-shape (de)serializers keep the full names for readability. Keys are
+    translated at the file boundary only.
+
+Single, current format. No version numbering, no backward compat — palaterm
+is in early development; old files will not load. Re-create them.
+
+Key cipher (saved to file ↔ used in code):
+
+    geometry          x y w h
+    box style         b fl tx ha va rf
+    line endpoints    sc sr ec er
+    line style        ls se ee ss es sb eb
+    connector         lid a tid s r
+    common            t id fg bg
+
+Two pairs that look similar at a glance:
+  * ``ss`` (start_side) vs ``se`` (start_ending) — values disambiguate
+    (``"left"`` vs ``"arrow"``).
+  * ``sb`` (start_sub) vs ``b`` (border) — values disambiguate (array vs
+    string).
 """
 
 from __future__ import annotations
@@ -21,11 +40,60 @@ from .models import (
 )
 
 
-# --- defaults (omitted at save, restored at load) ----------------------------
+# --- key cipher ------------------------------------------------------------
 #
-# Keys here mirror the JSON field names. A serialized shape only includes a
-# key when its value differs from the default. Loaders use ``dict.get(key,
-# default)`` so older files (which always wrote these keys) still load fine.
+# Internal dicts (built by the per-shape serializers, consumed by the
+# per-shape deserializers) use the long, readable names. Translation to/from
+# the short on-disk keys happens once, at the file boundary.
+
+_LONG_TO_SHORT: dict[str, str] = {
+    # box geometry
+    "type":   "t",
+    "left":   "x",
+    "top":    "y",
+    "width":  "w",
+    "height": "h",
+    # box style
+    "border": "b",
+    "fill":   "fl",
+    "text":   "tx",
+    "halign": "ha",
+    "valign": "va",
+    "rect_f": "rf",
+    # line endpoints
+    "start_col": "sc", "start_row": "sr",
+    "end_col":   "ec", "end_row":   "er",
+    # line style
+    "line_style":   "ls",
+    "start_ending": "se",  "end_ending": "ee",
+    "start_side":   "ss",  "end_side":   "es",
+    "start_sub":    "sb",  "end_sub":    "eb",
+    # connector
+    "line_id":   "lid",
+    "anchor":    "a",
+    "target_id": "tid",
+    "side":      "s",
+    "ratio":     "r",
+    # passthrough — already short, no abbreviation worth doing
+    "id": "id", "fg": "fg", "bg": "bg",
+}
+
+_SHORT_TO_LONG: dict[str, str] = {v: k for k, v in _LONG_TO_SHORT.items()}
+
+
+def _shorten_keys(d: dict) -> dict:
+    return {_LONG_TO_SHORT.get(k, k): v for k, v in d.items()}
+
+
+def _lengthen_keys(d: dict) -> dict:
+    return {_SHORT_TO_LONG.get(k, k): v for k, v in d.items()}
+
+
+# --- defaults (omitted at save) --------------------------------------------
+#
+# Keyed on the long, readable JSON field names so the table reads cleanly.
+# A serialized shape only includes a key when its value differs from the
+# default here. Loaders supply the same default via ``dict.get`` literals.
 
 _BOX_DEFAULTS: dict[str, object] = {
     "border": "light",
@@ -43,9 +111,8 @@ _LINE_DEFAULTS: dict[str, object] = {
 }
 
 _CONNECTOR_DEFAULTS: dict[str, object] = {
-    # Connectors don't have meaningful "default" values today: every field
-    # carries information. Defined here for symmetry with the shape dicts;
-    # populate if a default ever emerges.
+    # No defaults today: every field carries information. Defined here for
+    # symmetry with the shape dicts.
 }
 
 
@@ -53,12 +120,12 @@ def _enum_str(e) -> str:
     return e.name.lower()
 
 
+_MISSING = object()
+
+
 def _drop_defaults(d: dict, defaults: dict[str, object]) -> dict:
     """Remove keys whose value equals the default for that field."""
     return {k: v for k, v in d.items() if defaults.get(k, _MISSING) != v}
-
-
-_MISSING = object()
 
 
 def _add_colors(d: dict, s) -> dict:
@@ -135,14 +202,13 @@ def _apply_colors(s, d: dict) -> None:
 def _deserialize_box(d: dict) -> BoxShape:
     s = BoxShape(
         Rect(d["left"], d["top"], d["width"], d["height"]),
-        text=d.get("text", _BOX_DEFAULTS["text"]),
-        border=BorderStyle[d.get("border", _BOX_DEFAULTS["border"]).upper()],
-        fill=FillStyle[d.get("fill", _BOX_DEFAULTS["fill"]).upper()],
-        halign=HAlign[d.get("halign", _BOX_DEFAULTS["halign"]).upper()],
-        valign=VAlign[d.get("valign", _BOX_DEFAULTS["valign"]).upper()],
+        text=d.get("text", ""),
+        border=BorderStyle[d.get("border", "light").upper()],
+        fill=FillStyle[d.get("fill", "none").upper()],
+        halign=HAlign[d.get("halign", "left").upper()],
+        valign=VAlign[d.get("valign", "top").upper()],
     )
-    if "id" in d:
-        s.id = d["id"]
+    s.id = d["id"]
     if "rect_f" in d:
         s.rect_f = tuple(d["rect_f"])
     _apply_colors(s, d)
@@ -153,13 +219,12 @@ def _deserialize_line(d: dict) -> LineShape:
     s = LineShape(
         Point(d["start_col"], d["start_row"]),
         Point(d["end_col"], d["end_row"]),
-        border=BorderStyle[d.get("border", _LINE_DEFAULTS["border"]).upper()],
-        line_style=LineStyle[d.get("line_style", _LINE_DEFAULTS["line_style"]).upper()],
-        start_ending=EndingStyle[d.get("start_ending", _LINE_DEFAULTS["start_ending"]).upper()],
-        end_ending=EndingStyle[d.get("end_ending", _LINE_DEFAULTS["end_ending"]).upper()],
+        border=BorderStyle[d.get("border", "light").upper()],
+        line_style=LineStyle[d.get("line_style", "orthogonal").upper()],
+        start_ending=EndingStyle[d.get("start_ending", "none").upper()],
+        end_ending=EndingStyle[d.get("end_ending", "none").upper()],
     )
-    if "id" in d:
-        s.id = d["id"]
+    s.id = d["id"]
     if "start_side" in d:
         s.start_side = d["start_side"]
     if "end_side" in d:
@@ -199,9 +264,7 @@ def _emit_jsonl_array(items: list[dict]) -> str:
           {"b": 2}
         ]
 
-    Keeps shape/connector edits as one-line diffs while leaving the outer
-    document readable. Empty lists collapse to ``[]`` so trailing-comma
-    issues don't arise.
+    Empty lists collapse to ``[]`` so trailing-comma issues don't arise.
     """
     if not items:
         return "[]"
@@ -210,17 +273,17 @@ def _emit_jsonl_array(items: list[dict]) -> str:
 
 
 def save_canvas(canvas: Canvas, path: Path, charset: CharSet = CharSet.UNICODE) -> None:
-    """Serialize all shapes to a JSON file in the compact, git-friendly format."""
+    """Serialize all shapes to a JSON file in the compact, short-keyed format."""
     shapes = []
     for shape in canvas.shapes:
         serializer = _SERIALIZERS.get(type(shape))
         if serializer:
-            shapes.append(serializer(shape))
-    connectors = [_serialize_connector(c) for c in canvas.connector_mgr.connectors]
+            shapes.append(_shorten_keys(serializer(shape)))
+    connectors = [_shorten_keys(_serialize_connector(c))
+                  for c in canvas.connector_mgr.connectors]
 
     parts = [
         "{",
-        f'  "version": 5,',
         f'  "charset": {json.dumps(_enum_str(charset))},',
         f'  "shapes": {_emit_jsonl_array(shapes)},',
         f'  "connectors": {_emit_jsonl_array(connectors)}',
@@ -231,18 +294,15 @@ def save_canvas(canvas: Canvas, path: Path, charset: CharSet = CharSet.UNICODE) 
 
 
 def load_canvas(path: Path) -> tuple[Canvas, CharSet]:
-    """Deserialize shapes from a JSON file. Returns (canvas, charset).
-
-    Accepts both v4 (multi-line, defaults-always-present) and v5 (compact,
-    defaults-omitted) files.
-    """
+    """Deserialize shapes from a JSON file. Returns ``(canvas, charset)``."""
     data = json.loads(path.read_text())
     canvas = Canvas()
-    for d in data.get("shapes", []):
+    for short in data.get("shapes", []):
+        d = _lengthen_keys(short)
         deserializer = _DESERIALIZERS.get(d.get("type"))
         if deserializer:
             canvas.add_shape(deserializer(d))
-    for d in data.get("connectors", []):
-        canvas.connector_mgr.add(_deserialize_connector(d))
+    for short in data.get("connectors", []):
+        canvas.connector_mgr.add(_deserialize_connector(_lengthen_keys(short)))
     charset = CharSet[data.get("charset", "unicode").upper()]
     return canvas, charset
