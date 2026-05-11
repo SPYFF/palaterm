@@ -10,25 +10,31 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    container: ghcr.io/astral-sh/uv:python${{ matrix.python-version }}-bookworm-slim
     strategy:
       fail-fast: false
       matrix:
         python-version: ["3.11", "3.12", "3.13"]
+    env:
+      UV_LINK_MODE: copy
+      UV_CACHE_DIR: /tmp/uv-cache
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v6
+      - name: Cache uv downloads
+        uses: actions/cache@v4
         with:
-          enable-cache: true
-          cache-dependency-glob: "uv.lock"
+          path: /tmp/uv-cache
+          key: uv-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+          restore-keys: |
+            uv-${{ matrix.python-version }}-
 
-      - name: Set up Python ${{ matrix.python-version }}
-        run: uv python install ${{ matrix.python-version }}
+      - name: Show uv version
+        run: uv --version
 
       - name: Install dependencies
-        run: uv sync --frozen --python ${{ matrix.python-version }}
+        run: uv sync
 
       - name: Run tests
-        run: uv run --python ${{ matrix.python-version }} pytest -q
+        run: uv run pytest -q
