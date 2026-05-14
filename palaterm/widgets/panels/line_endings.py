@@ -1,10 +1,11 @@
-"""Line endings panel: 2-column (start/end) x 5-row (styles) grid of flat Buttons."""
+"""Line endings panel: two horizontal rows (start/end) of ending style buttons."""
 
 from __future__ import annotations
 
 from textual.app import ComposeResult
+from textual.containers import Horizontal, Vertical
 from textual.message import Message
-from textual.widgets import Button, Label, Static
+from textual.widgets import Button, Label
 
 from ...models.charset import CharSet
 from ...models.enums import EndingStyle
@@ -53,32 +54,15 @@ class EndingButton(Button):
         self.post_message(self.Clicked(self.ending, self.endpoint))
 
 
-class LineEndingsPanel(Static):
-    """Line endings picker: 5 styles x 2 endpoints (start/end)."""
+class LineEndingsPanel(Vertical):
+    """Line endings picker: 5 styles × 2 rows (start/end)."""
 
     DEFAULT_CSS = """
     LineEndingsPanel {
-        layout: grid;
-        grid-size: 2 7;
-        grid-columns: 1fr 1fr;
-        grid-rows: 1;
-        padding: 0 1;
+        height: auto;
     }
-    LineEndingsPanel Label.panel-label {
-        column-span: 2;
-        padding: 0;
-    }
-    LineEndingsPanel Label.endings-col-label {
-        height: 1;
-        padding: 0;
-        text-style: dim;
-        content-align: center middle;
-        width: 100%;
-    }
-    LineEndingsPanel EndingButton {
-        width: 100%;
-        min-width: 3;
-        content-align: center middle;
+    LineEndingsPanel Button {
+        width: 1fr;
     }
     """
 
@@ -87,11 +71,12 @@ class LineEndingsPanel(Static):
 
     def compose(self) -> ComposeResult:
         yield Label("Endings", classes="panel-label")
-        yield Label("Start", classes="endings-col-label")
-        yield Label("End", classes="endings-col-label")
-        for style in EndingStyle:
-            yield EndingButton(style, "start", id=f"ending-start-{style.name.lower()}")
-            yield EndingButton(style, "end", id=f"ending-end-{style.name.lower()}")
+        with Horizontal():
+            for style in EndingStyle:
+                yield EndingButton(style, "start", id=f"ending-start-{style.name.lower()}")
+        with Horizontal():
+            for style in EndingStyle:
+                yield EndingButton(style, "end", id=f"ending-end-{style.name.lower()}")
 
     def on_mount(self) -> None:
         self.set_active(EndingStyle.NONE, EndingStyle.NONE)
