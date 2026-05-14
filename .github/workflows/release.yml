@@ -24,7 +24,7 @@ jobs:
         run: uv sync
 
       - name: Build executable
-        run: uv run pyinstaller --onefile --name palaterm palaterm/app.py
+        run: uv run pyinstaller --onefile --name palaterm entry.py
 
       - uses: actions/upload-artifact@v4
         with:
