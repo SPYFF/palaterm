@@ -170,4 +170,4 @@ class FrameRenderer:
                 segments.append(Segment(ch, base_style + cell_styles[pos]))
             else:
                 segments.append(Segment(ch, base_style))
-        return Strip(segments)
+        return Strip(segments, width)

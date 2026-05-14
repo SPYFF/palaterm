@@ -687,11 +687,10 @@ class PalatermApp(App):
 
         Textual's ``App.title`` reactive only feeds the in-app ``Header``
         widget; without one mounted, the terminal title bar stays
-        whatever the surrounding shell put there. We write the OSC
-        escape directly so window-manager / tab labels show the
-        filename and dirty state. Output goes to ``sys.__stdout__``
-        (the real terminal) — Textual replaces ``sys.stdout`` while
-        the app is running.
+        whatever the surrounding shell put there. We route the OSC
+        through Textual's driver so it doesn't interleave with frame
+        rendering (writing directly to sys.__stdout__ can corrupt ANSI
+        sequences on Windows where output goes through a WriterThread).
         """
         from pathlib import Path
         if self._file_path:
@@ -700,16 +699,22 @@ class PalatermApp(App):
             name = "[new]"
         dirty = "● " if self.history.is_dirty else ""
         try:
-            sys.__stdout__.write(f"\x1b]0;{dirty}palaterm — {name}\x07")
-            sys.__stdout__.flush()
+            if self._driver is not None:
+                self._driver.write(f"\x1b]0;{dirty}palaterm — {name}\x07")
+            else:
+                sys.__stdout__.write(f"\x1b]0;{dirty}palaterm — {name}\x07")
+                sys.__stdout__.flush()
         except (OSError, ValueError):
             pass
 
     def on_unmount(self) -> None:
         """Reset the terminal title to a sensible default on exit."""
         try:
-            sys.__stdout__.write("\x1b]0;\x07")
-            sys.__stdout__.flush()
+            if self._driver is not None:
+                self._driver.write("\x1b]0;\x07")
+            else:
+                sys.__stdout__.write("\x1b]0;\x07")
+                sys.__stdout__.flush()
         except (OSError, ValueError):
             pass
 
