@@ -321,6 +321,15 @@ def export_presenterm(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
                 chunks.append(
                     f'<span style="{"; ".join(style_parts)}">{escaped}</span>'
                 )
+        # Wrap trailing whitespace in unstyled span to preserve it
+        if chunks and chunks[-1].endswith(" ") and not chunks[-1].endswith("</span>"):
+            trail = chunks[-1]
+            stripped = trail.rstrip(" ")
+            if stripped:
+                chunks[-1] = stripped
+                chunks.append(f"<span>{trail[len(stripped):]}</span>")
+            else:
+                chunks[-1] = f"<span>{trail}</span>"
         line_strs.append("".join(chunks))
 
     return "\\\n".join(line_strs) + "\n"
