@@ -43,6 +43,33 @@ _RICH_TO_CSS: dict[str, str] = {
 }
 
 
+_RICH_TO_PRESENTERM: dict[str, str] = {
+    "black":          "black",
+    "red":            "dark_red",
+    "green":          "dark_green",
+    "yellow":         "dark_yellow",
+    "blue":           "dark_blue",
+    "magenta":        "dark_magenta",
+    "cyan":           "dark_cyan",
+    "white":          "white",
+    "bright_black":   "grey",
+    "bright_red":     "red",
+    "bright_green":   "green",
+    "bright_yellow":  "yellow",
+    "bright_blue":    "blue",
+    "bright_magenta": "magenta",
+    "bright_cyan":    "cyan",
+    "bright_white":   "white",
+}
+
+
+def to_presenterm(rich_name: str | None) -> str | None:
+    """Translate a Rich color name to a presenterm color name, or pass through."""
+    if rich_name is None:
+        return None
+    return _RICH_TO_PRESENTERM.get(rich_name, rich_name)
+
+
 def to_css(rich_name: str | None) -> str | None:
     """Translate a Rich color name to a CSS color, or pass through unchanged."""
     if rich_name is None:
@@ -248,3 +275,52 @@ def export_html(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
     if not cells:
         return ""
     return _HTML_TEMPLATE.format(body=_styled_pre_body(cells, bound))
+
+
+# ---------------------------------------------------------------------------
+# Presenterm
+# ---------------------------------------------------------------------------
+
+
+def export_presenterm(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
+                      shapes: list[Shape] | None = None) -> str:
+    """Render the canvas (or selected ``shapes``) to presenterm-compatible markdown.
+
+    Output uses HTML ``<span>`` tags with inline ``color`` / ``background-color``
+    CSS properties. Leading whitespace on each line is wrapped in an unstyled
+    ``<span>`` to prevent CommonMark from trimming it. Lines are joined with
+    backslash hard-breaks.
+
+    Returns an empty string when there is nothing to render.
+    """
+    bound, cells = _bounded_grid(canvas, charset, shapes)
+    if not cells:
+        return ""
+
+    line_strs: list[str] = []
+    for row in range(bound.top, bound.bottom + 1):
+        chunks: list[str] = []
+        leading = True
+        for _, run_text, fg, bg in _runs_for_row(cells, row, bound.left, bound.right):
+            escaped = _escape(run_text)
+            pt_fg = to_presenterm(fg)
+            pt_bg = to_presenterm(bg)
+            if leading and pt_fg is None and pt_bg is None and run_text.strip() == "":
+                # Wrap leading whitespace in unstyled span
+                chunks.append(f"<span>{escaped}</span>")
+            elif pt_fg is None and pt_bg is None:
+                leading = False
+                chunks.append(escaped)
+            else:
+                leading = False
+                style_parts = []
+                if pt_fg is not None:
+                    style_parts.append(f"color: {pt_fg}")
+                if pt_bg is not None:
+                    style_parts.append(f"background-color: {pt_bg}")
+                chunks.append(
+                    f'<span style="{"; ".join(style_parts)}">{escaped}</span>'
+                )
+        line_strs.append("".join(chunks))
+
+    return "\\\n".join(line_strs) + "\n"

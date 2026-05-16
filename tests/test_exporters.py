@@ -1,4 +1,4 @@
-"""Tests for the text / HTML / SVG exporters."""
+"""Tests for the text / HTML / SVG / presenterm exporters."""
 
 from __future__ import annotations
 
@@ -9,7 +9,9 @@ import pytest
 from palaterm.canvas import Canvas
 from palaterm.geometry import Rect
 from palaterm.models import BorderStyle, BoxShape, CharSet, FillStyle
-from palaterm.exporters import _RICH_TO_CSS, export_html, export_svg, to_css
+from palaterm.exporters import (
+    _RICH_TO_CSS, export_html, export_presenterm, export_svg, to_css,
+)
 
 
 # --- shared helpers --------------------------------------------------------
@@ -229,3 +231,94 @@ def test_svg_export_escapes_special_chars() -> None:
     raw_text_chars = re.findall(r'>[^<]*<', svg)  # text between tags
     for chunk in raw_text_chars:
         assert "<a&b>" not in chunk
+
+
+# --- Presenterm export ---------------------------------------------------
+
+def test_presenterm_export_empty_canvas(empty_canvas: Canvas) -> None:
+    assert export_presenterm(empty_canvas) == ""
+
+
+def test_presenterm_export_lines_end_with_backslash() -> None:
+    """All lines except the last must end with backslash."""
+    c = _three_box_canvas()
+    out = export_presenterm(c)
+    lines = out.split("\n")
+    # Last line is empty (trailing newline), second-to-last has no backslash
+    for line in lines[:-2]:
+        assert line.endswith("\\"), f"Line missing backslash: {line!r}"
+    assert not lines[-2].endswith("\\")
+
+
+def test_presenterm_export_leading_whitespace_wrapped() -> None:
+    """Leading spaces must be wrapped in an unstyled <span>."""
+    c = Canvas()
+    # Two boxes: one at col 0, one at col 5. The second box's first row
+    # starts at col 5, so rows where only the right box has content will
+    # have leading whitespace from the bounding box left (col 0).
+    a = BoxShape(Rect(0, 3, 3, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
+    a.fg = "green"; a.id = "a"
+    b = BoxShape(Rect(5, 0, 4, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
+    b.fg = "red"; b.id = "b"
+    c.add_shape(a)
+    c.add_shape(b)
+    out = export_presenterm(c)
+    first_line = out.split("\n")[0].rstrip("\\")
+    # 5 spaces of leading whitespace wrapped in unstyled span
+    assert first_line.startswith("<span>     </span>")
+
+
+def test_presenterm_export_uses_css_color_names() -> None:
+    """Colors must be mapped to presenterm ANSI names."""
+    c = Canvas()
+    box = BoxShape(Rect(0, 0, 4, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
+    box.fg = "bright_red"
+    box.id = "b0"
+    c.add_shape(box)
+    out = export_presenterm(c)
+    assert 'color: red' in out
+    assert "bright_red" not in out
+
+
+def test_presenterm_export_background_color() -> None:
+    """bg must produce background-color in the style."""
+    c = Canvas()
+    box = BoxShape(Rect(0, 0, 4, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
+    box.fg = "red"
+    box.bg = "blue"
+    box.id = "b0"
+    c.add_shape(box)
+    out = export_presenterm(c)
+    assert 'color: dark_red; background-color: dark_blue' in out
+
+
+def test_presenterm_export_escapes_special_chars() -> None:
+    """<, >, & in shape text must be HTML-escaped."""
+    c = Canvas()
+    box = BoxShape(Rect(0, 0, 12, 3), border=BorderStyle.LIGHT, text="<a&b>")
+    box.id = "b0"
+    c.add_shape(box)
+    out = export_presenterm(c)
+    assert "&lt;a&amp;b&gt;" in out
+    assert "<a&b>" not in out
+
+
+def test_presenterm_export_unstyled_between_spans() -> None:
+    """Unstyled content between styled runs is bare text (not wrapped)."""
+    c = Canvas()
+    a = BoxShape(Rect(0, 0, 3, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
+    a.fg = "red"; a.id = "a"
+    b = BoxShape(Rect(5, 0, 3, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
+    b.fg = "green"; b.id = "b"
+    c.add_shape(a)
+    c.add_shape(b)
+    out = export_presenterm(c)
+    # The gap between the two boxes should be bare spaces, not in a span
+    assert '</span>  <span' in out
+
+
+def test_presenterm_export_trailing_newline() -> None:
+    """Output must end with a newline."""
+    c = _three_box_canvas()
+    out = export_presenterm(c)
+    assert out.endswith("\n")

@@ -9,9 +9,10 @@ from textual.widgets import Button, Label
 
 
 _EXPORT_FORMATS = [
-    ("Text", "text"),
-    ("HTML", "html"),
-    ("SVG",  "svg"),
+    ("TXT", "text"),
+    ("HTM", "html"),
+    ("SVG", "svg"),
+    ("PT",  "presenterm"),
 ]
 
 

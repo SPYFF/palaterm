@@ -15,7 +15,7 @@ from textual.events import MouseUp
 from .commands import AddShape, AddShapes, CommandHistory, MoveShapes, RemoveShapes, TransformShapes
 from .controllers import PanelController, ToolController
 from .serialization import load_canvas, save_canvas
-from .exporters import export_html, export_svg
+from .exporters import export_html, export_presenterm, export_svg
 from .models import BoxShape, CharSet, EndingStyle, HAlign, LineShape, LineStyle, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, ToolType
 from .widgets import (
@@ -414,6 +414,9 @@ class PalatermApp(App):
         elif fmt == "svg":
             out = export_svg(cw.canvas, cw.charset, shapes)
             label = "SVG"
+        elif fmt == "presenterm":
+            out = export_presenterm(cw.canvas, cw.charset, shapes)
+            label = "presenterm"
         else:
             out = cw.canvas.export_to_text(shapes, cw.charset)
             label = "text"
