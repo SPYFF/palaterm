@@ -286,10 +286,11 @@ def export_presenterm(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
                       shapes: list[Shape] | None = None) -> str:
     """Render the canvas (or selected ``shapes``) to presenterm-compatible markdown.
 
-    Output uses HTML ``<span>`` tags with inline ``color`` / ``background-color``
-    CSS properties. Leading whitespace on each line is wrapped in an unstyled
-    ``<span>`` to prevent CommonMark from trimming it. Lines are joined with
-    backslash hard-breaks.
+    Each row is wrapped in a single outer ``<span>`` so presenterm preserves
+    its content verbatim — interior, leading, and trailing whitespace alike.
+    Styled runs become inner ``<span style="...">`` elements; unstyled runs
+    are bare text inside the outer wrapper. Lines are joined with
+    ``\\``-newline hard-breaks.
 
     Returns an empty string when there is nothing to render.
     """
@@ -299,20 +300,14 @@ def export_presenterm(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
 
     line_strs: list[str] = []
     for row in range(bound.top, bound.bottom + 1):
-        chunks: list[str] = []
-        leading = True
+        chunks: list[str] = ["<span>"]
         for _, run_text, fg, bg in _runs_for_row(cells, row, bound.left, bound.right):
             escaped = _escape(run_text)
             pt_fg = to_presenterm(fg)
             pt_bg = to_presenterm(bg)
-            if leading and pt_fg is None and pt_bg is None and run_text.strip() == "":
-                # Wrap leading whitespace in unstyled span
-                chunks.append(f"<span>{escaped}</span>")
-            elif pt_fg is None and pt_bg is None:
-                leading = False
+            if pt_fg is None and pt_bg is None:
                 chunks.append(escaped)
             else:
-                leading = False
                 style_parts = []
                 if pt_fg is not None:
                     style_parts.append(f"color: {pt_fg}")
@@ -321,15 +316,7 @@ def export_presenterm(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
                 chunks.append(
                     f'<span style="{"; ".join(style_parts)}">{escaped}</span>'
                 )
-        # Wrap trailing whitespace in unstyled span to preserve it
-        if chunks and chunks[-1].endswith(" ") and not chunks[-1].endswith("</span>"):
-            trail = chunks[-1]
-            stripped = trail.rstrip(" ")
-            if stripped:
-                chunks[-1] = stripped
-                chunks.append(f"<span>{trail[len(stripped):]}</span>")
-            else:
-                chunks[-1] = f"<span>{trail}</span>"
+        chunks.append("</span>")
         line_strs.append("".join(chunks))
 
     return "\\\n".join(line_strs) + "\n"

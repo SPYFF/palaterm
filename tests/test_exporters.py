@@ -250,8 +250,8 @@ def test_presenterm_export_lines_end_with_backslash() -> None:
     assert not lines[-2].endswith("\\")
 
 
-def test_presenterm_export_leading_whitespace_wrapped() -> None:
-    """Leading spaces must be wrapped in an unstyled <span>."""
+def test_presenterm_export_leading_whitespace_preserved() -> None:
+    """Leading spaces must be preserved as bare text inside the line's outer <span>."""
     c = Canvas()
     # Two boxes: one at col 0, one at col 5. The second box's first row
     # starts at col 5, so rows where only the right box has content will
@@ -264,8 +264,9 @@ def test_presenterm_export_leading_whitespace_wrapped() -> None:
     c.add_shape(b)
     out = export_presenterm(c)
     first_line = out.split("\n")[0].rstrip("\\")
-    # 5 spaces of leading whitespace wrapped in unstyled span
-    assert first_line.startswith("<span>     </span>")
+    # 5 spaces of leading whitespace preserved as bare text inside outer span
+    assert first_line.startswith("<span>     <span ")
+    assert first_line.endswith("</span></span>")
 
 
 def test_presenterm_export_uses_css_color_names() -> None:
@@ -304,7 +305,7 @@ def test_presenterm_export_escapes_special_chars() -> None:
 
 
 def test_presenterm_export_unstyled_between_spans() -> None:
-    """Unstyled content between styled runs is bare text (not wrapped)."""
+    """Unstyled content between styled runs is bare text inside the outer line span."""
     c = Canvas()
     a = BoxShape(Rect(0, 0, 3, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
     a.fg = "red"; a.id = "a"
@@ -313,8 +314,25 @@ def test_presenterm_export_unstyled_between_spans() -> None:
     c.add_shape(a)
     c.add_shape(b)
     out = export_presenterm(c)
-    # The gap between the two boxes should be bare spaces, not in a span
-    assert '</span>  <span' in out
+    # The gap between the two boxes should be bare spaces between styled spans
+    assert '</span>  <span ' in out
+    # And the whole row is wrapped in an outer <span>...</span>
+    line = out.split("\n")[0].rstrip("\\")
+    assert line.startswith("<span><span ")
+    assert line.endswith("</span></span>")
+
+
+def test_presenterm_export_each_line_wrapped_in_span() -> None:
+    """Every output line must be wrapped in an outer <span>...</span>."""
+    c = _three_box_canvas()
+    out = export_presenterm(c)
+    # Drop the trailing newline; split on \n, strip the line-continuation \.
+    lines = out.rstrip("\n").split("\n")
+    assert lines  # non-empty
+    for raw in lines:
+        line = raw.rstrip("\\")
+        assert line.startswith("<span>"), f"Line missing outer <span>: {line!r}"
+        assert line.endswith("</span>"), f"Line missing closing </span>: {line!r}"
 
 
 def test_presenterm_export_trailing_newline() -> None:
