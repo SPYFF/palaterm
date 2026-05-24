@@ -6,7 +6,8 @@ import math
 
 from ..geometry import Point, Rect
 from ..models import BorderStyle, BoxShape, EndingStyle, FillStyle, LineShape, LineStyle, Shape
-from ..connectors import Anchor, Connector, find_snap
+from ..connectors import Anchor, Connector, SnapResult, find_snap
+from .overlays import Overlay, SnapHighlight
 
 
 class DrawTool:
@@ -42,6 +43,9 @@ class DrawTool:
         self._shape = None
         self._start = None
         return result
+
+    def overlays(self) -> list[Overlay]:
+        return []
 
 
 class RectangleTool(DrawTool):
@@ -116,7 +120,7 @@ class LineTool(DrawTool):
         self.line_style = line_style
         self.start_ending = start_ending
         self.end_ending = end_ending
-        self.snap_target: object | None = None  # SnapResult during drag
+        self.snap_target: SnapResult | None = None  # active during drag
 
     @staticmethod
     def _to_sub(px: float, py: float) -> tuple[int, int]:
@@ -203,3 +207,9 @@ class LineTool(DrawTool):
         self._shape = None
         self._start = None
         return result
+
+    def overlays(self) -> list[Overlay]:
+        snap = self.snap_target
+        if snap is None:
+            return []
+        return [SnapHighlight(target_id=snap.target_id, side=snap.side)]

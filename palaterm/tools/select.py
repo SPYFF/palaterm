@@ -17,6 +17,7 @@ from .gestures import (
     EdgeDragGesture, Gesture, GestureCommit, LineHandleGesture,
     MoveGesture, RectSelectGesture, ResizeGesture,
 )
+from .overlays import EdgeHover, Overlay, SnapHighlight
 
 
 class SelectMode(Enum):
@@ -238,3 +239,16 @@ class SelectTool:
     def gesture_dirty_bounds(self, canvas: Any) -> list[Rect]:
         """Bounds the active gesture is currently painting (empty if idle)."""
         return self.gesture.dirty_bounds(canvas) if self.gesture is not None else []
+
+    # ---- Overlays the renderer should paint --------------------------------
+
+    def overlays(self) -> list[Overlay]:
+        out: list[Overlay] = []
+        snap = self.snap_target
+        if snap is not None:
+            out.append(SnapHighlight(target_id=snap.target_id, side=snap.side))
+        if self.hover_edge_line is not None:
+            out.append(EdgeHover(line=self.hover_edge_line,
+                                  edge_index=self.hover_edge_index,
+                                  whole=self.hover_edge_whole))
+        return out

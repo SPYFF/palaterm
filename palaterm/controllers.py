@@ -1,10 +1,19 @@
-"""Tool switching, state management, and panel visibility controller."""
+"""Persistent style state and Sidebar view application.
+
+``ToolController`` carries the style state that survives a tool switch (the
+border/fill/line style chosen in the panels) and constructs fresh tools when
+the user picks a different one.
+
+``SidebarView`` applies a ``SidebarState`` snapshot to the live Panel widgets.
+The state is computed by :func:`palaterm.sidebar_state.compute_sidebar_state`
+— a pure function that's the actual test surface. This class is a thin
+adapter that just performs the Textual queries.
+"""
 
 from __future__ import annotations
 
-from .models import (
-    BorderStyle, BoxShape, EndingStyle, FillStyle, LineShape, LineStyle,
-)
+from .models import BorderStyle, EndingStyle, FillStyle, LineStyle
+from .sidebar_state import SidebarState
 from .tools import LineTool, RectangleTool, SelectTool, TextTool, ToolType
 from .widgets.panels import (
     BorderStylePanel, FillPanel, LayerPanel, LineEndingsPanel, LineStylePanel,
@@ -36,88 +45,48 @@ class ToolController:
                                 self.start_ending, self.end_ending)
 
 
-class PanelController:
-    """Single source of truth for all panel visibility and active state."""
+class SidebarView:
+    """Applies a ``SidebarState`` snapshot to the Panel widgets."""
 
     def __init__(self, query_one) -> None:
         self._q = query_one
 
-    def update(self, tool, tool_ctrl) -> None:
-        """Update all panels based on current tool and selection state."""
-        is_select = isinstance(tool, SelectTool)
-        selected = tool.selected if is_select else []
+    def apply(self, state: SidebarState) -> None:
+        self._q(ToolPicker).set_active(state.tool_picker_active)
 
-        # Tool picker: always visible, sync active state
-        self._q(ToolPicker).set_active(tool_ctrl.active_tool_type)
-
-        # Select mode: only for select tool
         mode_panel = self._q(SelectModePanel)
-        mode_panel.set_class(is_select, "visible")
-        if is_select:
-            mode_panel.set_active(tool.mode)
+        mode_panel.set_class(state.select_mode.visible, "visible")
+        if state.select_mode.visible and state.select_mode.active is not None:
+            mode_panel.set_active(state.select_mode.active)
 
-        # Border style: rect/text/line tool, or select with bordered shapes
-        show_border = isinstance(tool, (RectangleTool, TextTool, LineTool))
-        if is_select:
-            show_border = any(hasattr(s, "border") for s in selected)
         border_panel = self._q(BorderStylePanel)
-        border_panel.set_class(show_border, "visible")
-        if show_border:
-            if isinstance(tool, (RectangleTool, TextTool, LineTool)):
-                border_panel.set_active(tool_ctrl.border_style)
-            elif is_select:
-                borders = [s.border for s in selected if hasattr(s, "border")]
-                if borders and all(b == borders[0] for b in borders):
-                    border_panel.set_active(borders[0])
+        border_panel.set_class(state.border.visible, "visible")
+        if state.border.visible:
+            border_panel.set_active(state.border.active)
 
-        # Fill: rect/text tool, or select with BoxShape
-        show_fill = isinstance(tool, (RectangleTool, TextTool))
-        if is_select:
-            show_fill = any(isinstance(s, BoxShape) for s in selected)
         fill_panel = self._q(FillPanel)
-        fill_panel.set_class(show_fill, "visible")
-        if show_fill:
-            if isinstance(tool, (RectangleTool, TextTool)):
-                fill_panel.set_active(tool_ctrl.fill)
-            elif is_select:
-                fills = [s.fill for s in selected if isinstance(s, BoxShape)]
-                if fills and all(f == fills[0] for f in fills):
-                    fill_panel.set_active(fills[0])
+        fill_panel.set_class(state.fill.visible, "visible")
+        if state.fill.visible:
+            fill_panel.set_active(state.fill.active)
 
-        # Line style: line tool or select with LineShape
-        show_line = isinstance(tool, LineTool)
-        if is_select:
-            show_line = any(isinstance(s, LineShape) for s in selected)
         line_panel = self._q(LineStylePanel)
-        line_panel.set_class(show_line, "visible")
-        if show_line:
-            if isinstance(tool, LineTool):
-                line_panel.set_active(tool_ctrl.line_style)
-            elif is_select:
-                styles = [s.line_style for s in selected if isinstance(s, LineShape)]
-                if styles:
-                    line_panel.set_active(styles[0])
+        line_panel.set_class(state.line_style.visible, "visible")
+        if state.line_style.visible and state.line_style.active is not None:
+            line_panel.set_active(state.line_style.active)
 
-        # Line endings: same visibility as line style
         endings_panel = self._q(LineEndingsPanel)
-        endings_panel.set_class(show_line, "visible")
-        if show_line:
-            if isinstance(tool, LineTool):
-                endings_panel.set_active(tool_ctrl.start_ending, tool_ctrl.end_ending)
-            elif is_select:
-                lines = [s for s in selected if isinstance(s, LineShape)]
-                if lines:
-                    endings_panel.set_active(lines[0].start_ending, lines[0].end_ending)
+        endings_panel.set_class(state.line_endings.visible, "visible")
+        if (state.line_endings.visible
+                and state.line_endings.start is not None
+                and state.line_endings.end is not None):
+            endings_panel.set_active(state.line_endings.start, state.line_endings.end)
 
-        # Text alignment: select with BoxShape that has text
-        text_shapes = [s for s in selected if isinstance(s, BoxShape) and s.text]
         text_panel = self._q(TextAlignPanel)
-        text_panel.set_class(bool(text_shapes), "visible")
-        if text_shapes:
-            text_panel.set_active(text_shapes[0].halign, text_shapes[0].valign)
+        text_panel.set_class(state.text_align.visible, "visible")
+        if (state.text_align.visible
+                and state.text_align.halign is not None
+                and state.text_align.valign is not None):
+            text_panel.set_active(state.text_align.halign, state.text_align.valign)
 
-        # Shape align: select with 2+ shapes
-        self._q(ShapeAlignPanel).set_class(len(selected) >= 2, "visible")
-
-        # Layer: select with any selection
-        self._q(LayerPanel).set_class(bool(selected), "visible")
+        self._q(ShapeAlignPanel).set_class(state.shape_align.visible, "visible")
+        self._q(LayerPanel).set_class(state.layer.visible, "visible")

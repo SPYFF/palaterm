@@ -7,9 +7,11 @@ from rich.style import Style as RichStyle
 from textual.strip import Strip
 
 from .canvas import Canvas
+from .connectors import Side
 from .geometry import Rect
 from .models import CharSet, Shape, braille_rect, braille_rect_precise
-from .tools import DrawTool, LineTool, SelectTool, get_handles
+from .tools import DrawTool, SelectTool, get_handles
+from .tools.overlays import EdgeHover, SnapHighlight
 
 
 # Foreground-only style fragments. They are merged with the canvas widget's
@@ -69,15 +71,13 @@ class FrameRenderer:
                     highlight_cells[pos] = "bright_cyan"
                 for _, pt in get_handles(tool.hover_shape).items():
                     handle_cells.add((pt.col, pt.row))
-            # Snap edge highlight for line handle drag
-            if hasattr(tool, 'snap_target') and tool.snap_target:
-                snap_edge_cells = self._get_edge_cells(tool.snap_target)
-            # Edge-hover highlight: hovered segment, or whole line on corner.
-            edge_hover_cells = self._get_edge_hover_cells(tool, charset)
 
-        # Snap edge highlight for line tool
-        if isinstance(tool, LineTool) and hasattr(tool, 'snap_target') and tool.snap_target:
-            snap_edge_cells = self._get_edge_cells(tool.snap_target)
+        if tool is not None and hasattr(tool, "overlays"):
+            for overlay in tool.overlays():
+                if isinstance(overlay, SnapHighlight):
+                    snap_edge_cells |= self._snap_edge_cells(overlay)
+                elif isinstance(overlay, EdgeHover):
+                    edge_hover_cells |= self._edge_hover_cells(overlay, charset)
 
         sel_rect = None
         if isinstance(tool, SelectTool) and tool.selection_rect:
@@ -94,13 +94,11 @@ class FrameRenderer:
         self._cache = (cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells, cell_styles, edge_hover_cells)
         return self._cache
 
-    def _get_edge_hover_cells(self, tool: SelectTool, charset: CharSet) -> set[tuple[int, int]]:
-        line = tool.hover_edge_line
-        if line is None:
-            return set()
-        if tool.hover_edge_whole:
+    def _edge_hover_cells(self, overlay: EdgeHover, charset: CharSet) -> set[tuple[int, int]]:
+        line = overlay.line
+        if overlay.whole:
             return set(line.render(charset).keys())
-        idx = tool.hover_edge_index
+        idx = overlay.edge_index
         if idx is None:
             return set()
         joints = line.joint_points
@@ -116,15 +114,14 @@ class FrameRenderer:
                 cells.add((p1.col, r))
         return cells
 
-    def _get_edge_cells(self, snap_result) -> set[tuple[int, int]]:
-        """Get the cells along the target shape's snapped edge."""
-        from .connectors import Side
-        target = next((s for s in self.canvas.shapes if s.id == snap_result.target_id), None)
+    def _snap_edge_cells(self, overlay: SnapHighlight) -> set[tuple[int, int]]:
+        """Cells along the target shape's snapped edge."""
+        target = next((s for s in self.canvas.shapes if s.id == overlay.target_id), None)
         if not target:
             return set()
         b = target.bound
         cells: set[tuple[int, int]] = set()
-        match snap_result.side:
+        match overlay.side:
             case Side.LEFT:
                 for row in range(b.top, b.bottom + 1):
                     cells.add((b.left, row))

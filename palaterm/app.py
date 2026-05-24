@@ -13,7 +13,8 @@ from textual.containers import Vertical
 from textual.events import MouseUp
 
 from .commands import AddShape, AddShapes, CommandHistory, MoveLineEdge, MoveShapes, RemoveShapes, TransformShapes
-from .controllers import PanelController, ToolController
+from .controllers import SidebarView, ToolController
+from .sidebar_state import compute_sidebar_state
 from .style_application import apply_attribute_change
 from .serialization import load_canvas, save_canvas
 from .exporters import export_html, export_presenterm, export_svg
@@ -143,7 +144,7 @@ class PalatermApp(App):
         super().__init__()
         self.theme = "textual-light" if _terminal_is_light() else "textual-dark"
         self._tool_ctrl = ToolController()
-        self._panel_ctrl: PanelController | None = None
+        self._sidebar: SidebarView | None = None
         self.history = CommandHistory()
         self._file_path: str | None = None
         self._clipboard: list = []
@@ -168,7 +169,7 @@ class PalatermApp(App):
         yield StatusBar()
 
     def on_mount(self) -> None:
-        self._panel_ctrl = PanelController(self.query_one)
+        self._sidebar = SidebarView(self.query_one)
         self._canvas_widget = self.query_one(CanvasWidget)
         self._status_bar = self.query_one(StatusBar)
         if self._initial_file:
@@ -656,9 +657,10 @@ class PalatermApp(App):
         return new_connectors
 
     def _update_panels(self) -> None:
-        if self._panel_ctrl:
+        if self._sidebar:
             try:
-                self._panel_ctrl.update(self.canvas_widget.tool, self._tool_ctrl)
+                state = compute_sidebar_state(self.canvas_widget.tool, self._tool_ctrl)
+                self._sidebar.apply(state)
             except Exception:
                 pass
 
