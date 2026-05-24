@@ -6,7 +6,7 @@ import math
 import time
 
 from textual.events import MouseDown, MouseMove, MouseUp
-from textual.geometry import Region
+from textual.geometry import Region, Size
 from textual.message import Message
 from textual.strip import Strip
 from textual.widget import Widget
@@ -17,6 +17,10 @@ from ..rendering import FrameRenderer
 from ..models import BoxShape, CharSet, LineShape
 from ..tools import DrawTool, SelectTool, TextTool
 from .modals import TextEditModal
+
+_ORIGIN_COL = 100
+_ORIGIN_ROW = 100
+_PADDING = 50
 
 
 class CanvasWidget(Widget, can_focus=True):
@@ -51,8 +55,10 @@ class CanvasWidget(Widget, can_focus=True):
     CanvasWidget {
         width: 1fr;
         height: 1fr;
-        overflow: hidden;
+        overflow: scroll;
         color: $text;
+        scrollbar-size-vertical: 1;
+        scrollbar-size-horizontal: 1;
     }
     """
 
@@ -61,8 +67,6 @@ class CanvasWidget(Widget, can_focus=True):
         self.canvas = Canvas()
         self.tool: DrawTool | SelectTool = SelectTool()
         self.charset: CharSet = CharSet.UNICODE
-        self._scroll_col = 0
-        self._scroll_row = 0
         self._mouse_down = False
         self._editing: bool = False
         self._renderer = FrameRenderer(self.canvas)
@@ -71,6 +75,44 @@ class CanvasWidget(Widget, can_focus=True):
         self._move_start: Point | None = None
         self._resize_snapshot: tuple | None = None
         self._edge_drag_snapshot: tuple | None = None  # (line, before_joints, before_modified)
+        self._update_virtual_size()
+
+    def on_mount(self) -> None:
+        self.scroll_to(_ORIGIN_COL, _ORIGIN_ROW, animate=False)
+
+    def watch_scroll_x(self, old_value: float, new_value: float) -> None:
+        super().watch_scroll_x(old_value, new_value)
+        if round(old_value) != round(new_value):
+            self._renderer.invalidate()
+
+    def watch_scroll_y(self, old_value: float, new_value: float) -> None:
+        super().watch_scroll_y(old_value, new_value)
+        if round(old_value) != round(new_value):
+            self._renderer.invalidate()
+
+    @property
+    def _scroll_col(self) -> int:
+        return int(self.scroll_x) - _ORIGIN_COL
+
+    @property
+    def _scroll_row(self) -> int:
+        return int(self.scroll_y) - _ORIGIN_ROW
+
+    def _update_virtual_size(self) -> None:
+        """Recompute virtual_size to encompass all shapes + padding."""
+        min_w = 200
+        min_h = 200
+        if self.canvas.shapes:
+            bounds = [s.bound for s in self.canvas.shapes]
+            left = min(b.left for b in bounds)
+            top = min(b.top for b in bounds)
+            right = max(b.right for b in bounds)
+            bottom = max(b.bottom for b in bounds)
+            w = max(min_w, (right + _ORIGIN_COL + _PADDING) * 2)
+            h = max(min_h, (bottom + _ORIGIN_ROW + _PADDING) * 2)
+        else:
+            w, h = min_w, min_h
+        self.virtual_size = Size(w, h)
 
     def _to_canvas_coords(self, x: int, y: int) -> tuple[int, int]:
         return x + self._scroll_col, y + self._scroll_row
@@ -104,7 +146,11 @@ class CanvasWidget(Widget, can_focus=True):
         self.app.push_screen(TextEditModal(shape.text), on_dismiss)
 
     def render_line(self, y: int) -> Strip:
-        viewport = Rect(self._scroll_col, self._scroll_row, self.size.width, self.size.height)
+        scroll_x, scroll_y = self.scroll_offset
+        canvas_col = scroll_x - _ORIGIN_COL
+        canvas_row = scroll_y - _ORIGIN_ROW
+        region = self.scrollable_content_region
+        viewport = Rect(canvas_col, canvas_row, region.width or self.size.width, region.height or self.size.height)
         return self._renderer.render_line(y, viewport, self.tool, self.rich_style, self.charset)
 
     # ---- Refresh API ----------------------------------------------------
@@ -403,4 +449,5 @@ class CanvasWidget(Widget, can_focus=True):
         self._move_start = None
         self._resize_snapshot = None
         self._edge_drag_snapshot = None
+        self._update_virtual_size()
         self._refresh_dirty_since(before)

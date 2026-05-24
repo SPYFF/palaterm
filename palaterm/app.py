@@ -396,6 +396,7 @@ class PalatermApp(App):
             cmd = RemoveShapes(cw.canvas, cw.tool.selected)
             self.history.execute(cmd)
             cw.tool.selected = []
+            cw._update_virtual_size()
             cw.refresh()
             self._update_status()
 
@@ -548,6 +549,7 @@ class PalatermApp(App):
             cw.tool.selected = []
         self._file_path = path
         self.history = CommandHistory()
+        cw._update_virtual_size()
         cw.refresh()
         self.notify(f"Opened: {path}", timeout=2)
         self._update_status()
@@ -556,14 +558,13 @@ class PalatermApp(App):
         cw = self.canvas_widget
         match direction:
             case "up":
-                cw._scroll_row -= 3
+                cw.scroll_relative(y=-3, animate=False)
             case "down":
-                cw._scroll_row += 3
+                cw.scroll_relative(y=3, animate=False)
             case "left":
-                cw._scroll_col -= 5
+                cw.scroll_relative(x=-5, animate=False)
             case "right":
-                cw._scroll_col += 5
-        cw.refresh()
+                cw.scroll_relative(x=5, animate=False)
 
     def action_cycle_halign(self) -> None:
         cw = self.canvas_widget
@@ -589,11 +590,13 @@ class PalatermApp(App):
 
     def action_undo(self) -> None:
         if self.history.undo():
+            self.canvas_widget._update_virtual_size()
             self.canvas_widget.refresh()
             self._update_status()
 
     def action_redo(self) -> None:
         if self.history.redo():
+            self.canvas_widget._update_virtual_size()
             self.canvas_widget.refresh()
             self._update_status()
 
@@ -617,6 +620,7 @@ class PalatermApp(App):
         cmd = RemoveShapes(cw.canvas, cw.tool.selected)
         self.history.execute(cmd)
         cw.tool.selected = []
+        cw._update_virtual_size()
         cw.refresh()
         self._update_status()
 
@@ -651,6 +655,7 @@ class PalatermApp(App):
         if not isinstance(cw.tool, SelectTool):
             self._switch_tool(ToolType.SELECT)
         cw.tool.selected = new_shapes
+        cw._update_virtual_size()
         cw.refresh()
         self._update_panels()
         self._update_status()
