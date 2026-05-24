@@ -18,7 +18,7 @@ from .commands import AddShape, AddShapes, CommandHistory, MoveLineEdge, MoveSha
 from .controllers import PanelController, ToolController
 from .serialization import load_canvas, save_canvas
 from .exporters import export_html, export_presenterm, export_svg
-from .models import BoxShape, CharSet, EndingStyle, FillStyle, HAlign, LineShape, LineStyle, Shape, VAlign
+from .models import BorderStyle, BoxShape, CharSet, EndingStyle, FillStyle, HAlign, LineShape, LineStyle, Shape, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, TextTool, ToolType
 from .widgets import (
     AlignCell, BorderStylePanel, CanvasWidget, ColorPanel, ConfirmModal, EndingButton,
@@ -211,10 +211,17 @@ class PalatermApp(App):
         self._tool_ctrl.border_style = event.style
         cw = self.canvas_widget
         tool = cw.tool
-        if isinstance(tool, (RectangleTool, TextTool, LineTool)):
+        none_style = event.style == BorderStyle.NONE
+        if isinstance(tool, LineTool):
+            if not none_style:
+                tool.border_style = event.style
+        elif isinstance(tool, (RectangleTool, TextTool)):
             tool.border_style = event.style
         elif isinstance(tool, SelectTool):
-            targets = [s for s in tool.selected if isinstance(s, (BoxShape, LineShape))]
+            targets = [
+                s for s in tool.selected
+                if isinstance(s, BoxShape) or (isinstance(s, LineShape) and not none_style)
+            ]
             if targets:
                 snapshots: list[tuple[Shape, dict[str, Any]]] = [
                     (s, {"border": s.border}) for s in targets
