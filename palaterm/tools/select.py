@@ -6,6 +6,7 @@ from enum import Enum, auto
 
 from ..geometry import Point, Rect
 from ..models import BorderStyle, BoxShape, LineShape, RectShape, Shape
+from ..models.line import LineRouting
 from ..connectors import Anchor, Connector, find_snap
 
 
@@ -37,7 +38,7 @@ class SelectTool:
         # Edge-drag state (orthogonal multi-segment lines).
         self._edge_drag_line: LineShape | None = None
         self._edge_drag_index: int | None = None
-        self._edge_snapshot: tuple[list[Point], bool] | None = None
+        self._edge_snapshot: LineRouting | None = None
         # Hover state for edge highlighting (rendering reads these).
         self.hover_edge_line: LineShape | None = None
         self.hover_edge_index: int | None = None
@@ -64,7 +65,7 @@ class SelectTool:
                 if edge_idx is not None:
                     self._edge_drag_line = shape
                     self._edge_drag_index = edge_idx
-                    self._edge_snapshot = (shape.joint_points, shape.edges_modified)
+                    self._edge_snapshot = shape.routing
                     self._drag_start = Point(col, row)
                     self._moving = False
                     self._resizing = False
@@ -193,12 +194,7 @@ class SelectTool:
             # the stored edge index refer to a different edge mid-drag, and
             # first/last edges spawn a new joint per mouse event.
             line = self._edge_drag_line
-            before_joints, before_modified = self._edge_snapshot
-            line._joint_points = [Point(p.col, p.row) for p in before_joints]
-            line._edges_modified = before_modified
-            if before_joints:
-                line.start = before_joints[0]
-                line.end = before_joints[-1]
+            line.routing = self._edge_snapshot
             line.move_edge(self._edge_drag_index, Point(col, row))
             return
         if self._resizing and self._resize_shape and self._resize_handle:

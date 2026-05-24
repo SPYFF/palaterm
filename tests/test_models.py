@@ -277,7 +277,7 @@ def test_line_move_edge_middle_segment_translates_perpendicular() -> None:
     # Z: (0,0) -> (5,0) -> (5,4) -> (10,4); middle edge index 1 is vertical.
     assert l.joint_points == [Point(0, 0), Point(5, 0), Point(5, 4), Point(10, 4)]
     l.move_edge(1, Point(7, 2))
-    assert l.edges_modified
+    assert l.routing.edges_modified
     assert l.joint_points == [Point(0, 0), Point(7, 0), Point(7, 4), Point(10, 4)]
 
 
@@ -286,7 +286,7 @@ def test_line_move_edge_first_edge_inserts_corner_joint() -> None:
     l = LineShape(Point(0, 0), Point(5, 3), line_style=LineStyle.ORTHOGONAL)
     # L: (0,0) -> (5,0) -> (5,3). Edge 0 horizontal.
     l.move_edge(0, Point(0, 2))
-    assert l.edges_modified
+    assert l.routing.edges_modified
     # Anchor (0,0) stays, new corner at (0,2), far end of edge 0 slides to (5,2).
     assert l.joint_points[0] == Point(0, 0)
     assert l.joint_points[-1] == Point(5, 3)
@@ -298,7 +298,7 @@ def test_line_move_anchor_unedited_rederives_path() -> None:
     l = LineShape(Point(0, 0), Point(5, 3), line_style=LineStyle.ORTHOGONAL)
     l.move_anchor("end", Point(8, 5))
     assert l.end == Point(8, 5)
-    assert not l.edges_modified
+    assert not l.routing.edges_modified
 
 
 def test_line_move_anchor_edited_keeps_custom_routing() -> None:
@@ -312,15 +312,15 @@ def test_line_move_anchor_edited_keeps_custom_routing() -> None:
     l.move_anchor("end", Point(11, 4))
     assert l.end == Point(11, 4)
     assert len(l.joint_points) == custom_joint_count
-    assert l.edges_modified
+    assert l.routing.edges_modified
 
 
-def test_line_reset_edges_modified_clears_state() -> None:
+def test_line_clear_custom_routing_resets_state() -> None:
     l = LineShape(Point(0, 0), Point(5, 3), line_style=LineStyle.ORTHOGONAL)
     l.move_edge(0, Point(0, 2))
-    assert l.edges_modified
-    l.reset_edges_modified()
-    assert not l.edges_modified
+    assert l.routing.edges_modified
+    l.clear_custom_routing()
+    assert not l.routing.edges_modified
     assert l.joint_points == [Point(0, 0), Point(5, 0), Point(5, 3)]
 
 
@@ -345,10 +345,10 @@ def test_line_follow_anchor_drops_user_edge_edits() -> None:
     l.end_side = "left"
     l._recompute()
     l.move_edge(1, Point(7, 2))
-    assert l.edges_modified
+    assert l.routing.edges_modified
     edited_joints = list(l.joint_points)
     l.follow_anchor("end", Point(11, 4))
-    assert not l.edges_modified
+    assert not l.routing.edges_modified
     assert l.end == Point(11, 4)
     # Joints come from _recompute using the kept side hints — Z-shape, not the
     # user's tweaked routing.
@@ -362,7 +362,7 @@ def test_line_follow_anchor_unedited_just_recomputes() -> None:
     l = LineShape(Point(0, 0), Point(5, 3), line_style=LineStyle.ORTHOGONAL)
     l.follow_anchor("end", Point(7, 2))
     assert l.end == Point(7, 2)
-    assert not l.edges_modified
+    assert not l.routing.edges_modified
 
 
 def test_line_move_translates_authoritative_joints() -> None:

@@ -8,7 +8,7 @@ from .canvas import Canvas
 from .connectors import Anchor, Connector
 from .geometry import Point
 from .models.base import Shape
-from .models.line import LineShape
+from .models.line import LineRouting, LineShape
 
 
 class Command(Protocol):
@@ -160,31 +160,18 @@ class AddShapes:
 
 
 class MoveLineEdge:
-    """Snapshot the joint state of a line before/after an edge-drag."""
+    """Snapshot the routing of a line before/after an edge-drag."""
 
-    def __init__(self, line: LineShape,
-                 before_joints: list[Point], before_modified: bool) -> None:
+    def __init__(self, line: LineShape, before: LineRouting) -> None:
         self._line = line
-        self._before = (list(before_joints), before_modified)
-        self._after = (list(line.joint_points), line.edges_modified)
+        self._before = before
+        self._after = line.routing
 
     def execute(self) -> None:
-        joints, modified = self._after
-        self._line._joint_points = list(joints)
-        self._line._edges_modified = modified
-        if joints:
-            self._line.start = joints[0]
-            self._line.end = joints[-1]
+        self._line.routing = self._after
 
     def undo(self) -> None:
-        joints, modified = self._before
-        self._line._joint_points = list(joints)
-        self._line._edges_modified = modified
-        if joints:
-            self._line.start = joints[0]
-            self._line.end = joints[-1]
-        if not modified:
-            self._line._recompute()
+        self._line.routing = self._before
 
 
 class TransformShapes:

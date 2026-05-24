@@ -61,6 +61,7 @@ from .models import (
     BorderStyle, BoxShape, CharSet, EndingStyle, FillStyle, HAlign, VAlign, LineStyle,
     LineShape,
 )
+from .models.line import LineRouting
 
 
 # --- key cipher ------------------------------------------------------------
@@ -249,9 +250,10 @@ def _serialize_line(s: LineShape) -> dict:
         d["start_sub"] = list(s.start_sub)
     if s.end_sub:
         d["end_sub"] = list(s.end_sub)
-    if s.edges_modified:
+    routing = s.routing
+    if routing.edges_modified:
         d["edges_modified"] = True
-        d["joints"] = [[p.col, p.row] for p in s.joint_points]
+        d["joints"] = [[p.col, p.row] for p in routing.joints]
     _add_colors(d, s)
     return _drop_defaults(d, _LINE_DEFAULTS)
 
@@ -318,10 +320,10 @@ def _deserialize_line(d: dict) -> LineShape:
         s.end_sub = tuple(d["end_sub"])
     _apply_colors(s, d)
     if d.get("edges_modified") and d.get("joints"):
-        s._joint_points = [Point(c, r) for c, r in d["joints"]]
-        s._edges_modified = True
-        s.start = s._joint_points[0]
-        s.end = s._joint_points[-1]
+        s.routing = LineRouting(
+            tuple(Point(c, r) for c, r in d["joints"]),
+            edges_modified=True,
+        )
     else:
         s._recompute()
     return s

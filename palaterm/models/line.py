@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import dataclass
 
 from ..geometry import Point, Rect
 from .base import Shape
@@ -11,6 +12,23 @@ from .enums import (
     ARROW_CHARS, ARROW_CHARS_ASCII, BORDER_CHARS, BorderStyle,
     Direction, ENDING_CHARS, EndingStyle, LineStyle,
 )
+
+
+@dataclass(frozen=True)
+class LineRouting:
+    """Atomic snapshot of a LineShape's joint path.
+
+    ``joints`` is the full joint sequence including endpoints. ``edges_modified``
+    records whether the user has dragged an edge — when True the path is
+    authoritative; when False the path was derived from endpoints + side hints
+    and ``LineShape._recompute`` is free to regenerate it.
+
+    Bundling the two together is the contract: every place that saves and
+    restores a routing must do both at once, or the line ends up half-derived.
+    """
+
+    joints: tuple[Point, ...]
+    edges_modified: bool
 
 
 def _reduce_joints(joints: list[Point]) -> list[Point]:
@@ -216,8 +234,25 @@ class LineShape(Shape):
         return list(self._joint_points)
 
     @property
-    def edges_modified(self) -> bool:
-        return self._edges_modified
+    def routing(self) -> LineRouting:
+        """Snapshot the current joint path + authoritative-flag together."""
+        return LineRouting(tuple(self._joint_points), self._edges_modified)
+
+    @routing.setter
+    def routing(self, value: LineRouting) -> None:
+        """Restore a previously-snapshotted routing.
+
+        Re-synchronises ``start``/``end`` from the joint sequence and triggers
+        a derive pass when the routing isn't authoritative, so the line ends
+        up in a valid state regardless of which mode the snapshot was taken in.
+        """
+        self._joint_points = [Point(p.col, p.row) for p in value.joints]
+        self._edges_modified = value.edges_modified
+        if self._joint_points:
+            self.start = self._joint_points[0]
+            self.end = self._joint_points[-1]
+        if not self._edges_modified:
+            self._recompute()
 
     def edge_at(self, col: int, row: int) -> int | None:
         """Return the edge index whose interior cell is (col, row), else None.
@@ -347,10 +382,15 @@ class LineShape(Shape):
             self.end = new_point
         else:
             return
-        self.reset_edges_modified()
+        self.clear_custom_routing()
 
-    def reset_edges_modified(self) -> None:
-        """Clear the modified flag and let _recompute() rederive joints."""
+    def clear_custom_routing(self) -> None:
+        """Discard any user edge edits and re-derive joints from endpoints.
+
+        After this returns the line is in derived mode: subsequent endpoint
+        moves rebuild the path, and the joint list is whatever the canonical
+        L/Z routing produces from ``start``/``end``/``start_side``/``end_side``.
+        """
         self._edges_modified = False
         self._joint_points = []
         self._recompute()

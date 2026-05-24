@@ -150,7 +150,7 @@ def test_move_shapes_resets_connected_line_to_derived() -> None:
     line.end_side = "left"
     line._recompute()
     line.move_edge(1, P(8, 3))
-    assert line.edges_modified
+    assert line.routing.edges_modified
     canvas.shapes = [box, line]
     canvas.connector_mgr.add(Connector(line_id="L", anchor=Anchor.START,
                                        target_id="box", side=Side.RIGHT, ratio=0.5))
@@ -159,7 +159,7 @@ def test_move_shapes_resets_connected_line_to_derived() -> None:
     cmd = MoveShapes([box], 2, 0, canvas)
     cmd.execute()
 
-    assert not line.edges_modified
+    assert not line.routing.edges_modified
     assert line.start.col == 6  # 4 + 2
 
 
@@ -193,7 +193,7 @@ def test_move_shapes_undo_translates_connected_line_back() -> None:
 
     history.undo()
     assert line.start == P(4, 1)
-    assert not line.edges_modified
+    assert not line.routing.edges_modified
 
 
 # --- TransformShapes -----------------------------------------------------

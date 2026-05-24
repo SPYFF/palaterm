@@ -195,7 +195,7 @@ class PalatermApp(App):
         self.history.push(cmd)
 
     def on_canvas_widget_line_edge_moved(self, event: CanvasWidget.LineEdgeMoved) -> None:
-        cmd = MoveLineEdge(event.line, event.before_joints, event.before_modified)
+        cmd = MoveLineEdge(event.line, event.before)
         self.history.push(cmd)
 
     def on_tool_picker_tool_selected(self, event: ToolPicker.ToolSelected) -> None:
@@ -260,18 +260,14 @@ class PalatermApp(App):
             targets = [s for s in tool.selected if isinstance(s, LineShape)]
             if targets:
                 # Switching style invalidates any edge-edited routing — snapshot
-                # the modified flag and joint list alongside line_style.
+                # routing alongside line_style so undo restores both atomically.
                 snapshots: list[tuple[Shape, dict[str, Any]]] = [
-                    (s, {
-                        "line_style": s.line_style,
-                        "_edges_modified": s._edges_modified,
-                        "_joint_points": list(s._joint_points),
-                    })
+                    (s, {"line_style": s.line_style, "routing": s.routing})
                     for s in targets
                 ]
                 for s in targets:
                     s.line_style = event.style
-                    s.reset_edges_modified()
+                    s.clear_custom_routing()
                 self.history.push(TransformShapes(snapshots))
                 cw.refresh()
         self._update_panels()

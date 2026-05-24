@@ -276,7 +276,7 @@ def test_round_trip_preserves_edge_modified_joints(tmp_path: Path) -> None:
     loaded, _ = load_canvas(p)
     reloaded = loaded.shapes[0]
     assert isinstance(reloaded, LineShape)
-    assert reloaded.edges_modified
+    assert reloaded.routing.edges_modified
     assert reloaded.joint_points == expected
 
 

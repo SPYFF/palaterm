@@ -15,6 +15,7 @@ from ..canvas import Canvas
 from ..geometry import Point, Rect
 from ..rendering import FrameRenderer
 from ..models import BoxShape, CharSet, LineShape
+from ..models.line import LineRouting
 from ..tools import DrawTool, SelectTool, TextTool
 from .modals import TextEditModal
 
@@ -45,11 +46,10 @@ class CanvasWidget(Widget, can_focus=True):
             self.old_attrs = old_attrs
 
     class LineEdgeMoved(Message):
-        def __init__(self, line, before_joints, before_modified: bool) -> None:
+        def __init__(self, line, before: LineRouting) -> None:
             super().__init__()
             self.line = line
-            self.before_joints = before_joints
-            self.before_modified = before_modified
+            self.before = before
 
     DEFAULT_CSS = """
     CanvasWidget {
@@ -74,7 +74,7 @@ class CanvasWidget(Widget, can_focus=True):
         self._last_click_pos: tuple[int, int] = (0, 0)
         self._move_start: Point | None = None
         self._resize_snapshot: tuple | None = None
-        self._edge_drag_snapshot: tuple | None = None  # (line, before_joints, before_modified)
+        self._edge_drag_snapshot: tuple[LineShape, LineRouting] | None = None
         self._update_virtual_size()
 
     def on_mount(self) -> None:
@@ -327,13 +327,12 @@ class CanvasWidget(Widget, can_focus=True):
             shape = self.tool._resize_shape
             if isinstance(shape, LineShape):
                 self._resize_snapshot = (shape, {"start": shape.start, "end": shape.end,
-                                                  "_joint_points": list(shape.joint_points),
-                                                  "_edges_modified": shape.edges_modified})
+                                                  "routing": shape.routing})
             else:
                 self._resize_snapshot = (shape, {"rect": shape.rect})
         if isinstance(self.tool, SelectTool) and self.tool._edge_drag_line is not None:
             line = self.tool._edge_drag_line
-            self._edge_drag_snapshot = (line, list(line.joint_points), line.edges_modified)
+            self._edge_drag_snapshot = (line, line.routing)
         self._refresh_dirty_since(before)
 
     def on_mouse_move(self, event: MouseMove) -> None:
@@ -443,9 +442,9 @@ class CanvasWidget(Widget, can_focus=True):
             shape, old_attrs = self._resize_snapshot
             self.post_message(self.ShapeResized(shape, old_attrs))
         elif was_edge_dragging and self._edge_drag_snapshot:
-            line, before_joints, before_modified = self._edge_drag_snapshot
-            if list(line.joint_points) != before_joints or line.edges_modified != before_modified:
-                self.post_message(self.LineEdgeMoved(line, before_joints, before_modified))
+            line, before_routing = self._edge_drag_snapshot
+            if line.routing != before_routing:
+                self.post_message(self.LineEdgeMoved(line, before_routing))
         self._move_start = None
         self._resize_snapshot = None
         self._edge_drag_snapshot = None
