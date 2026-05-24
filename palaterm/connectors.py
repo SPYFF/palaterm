@@ -104,7 +104,7 @@ class SnapResult:
     point: Point  # the exact point on the edge
 
 
-def find_snap(col: int, row: int, shapes: list, exclude_id: str | None = None, max_dist: int = 1) -> SnapResult | None:
+def find_snap(col: int, row: int, shapes: list, exclude_id: str | None = None, max_dist: int = 0) -> SnapResult | None:
     """Find the nearest connectable shape edge within max_dist cells.
 
     Only Rectangle and Text shapes are connectable.
