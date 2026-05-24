@@ -40,6 +40,13 @@ class CanvasWidget(Widget, can_focus=True):
             self.shape = shape
             self.old_attrs = old_attrs
 
+    class LineEdgeMoved(Message):
+        def __init__(self, line, before_joints, before_modified: bool) -> None:
+            super().__init__()
+            self.line = line
+            self.before_joints = before_joints
+            self.before_modified = before_modified
+
     DEFAULT_CSS = """
     CanvasWidget {
         width: 1fr;
@@ -63,6 +70,7 @@ class CanvasWidget(Widget, can_focus=True):
         self._last_click_pos: tuple[int, int] = (0, 0)
         self._move_start: Point | None = None
         self._resize_snapshot: tuple | None = None
+        self._edge_drag_snapshot: tuple | None = None  # (line, before_joints, before_modified)
 
     def _to_canvas_coords(self, x: int, y: int) -> tuple[int, int]:
         return x + self._scroll_col, y + self._scroll_row
@@ -219,6 +227,12 @@ class CanvasWidget(Widget, can_focus=True):
             # Snap-target highlight when dragging a line endpoint onto a box.
             if tool.snap_target is not None:
                 bounds.extend(self._snap_target_bounds(tool.snap_target))
+            # Edge-drag in flight: the line's bound shifts mid-drag.
+            if tool._edge_drag_line is not None:
+                bounds.append(tool._edge_drag_line.bound)
+            # Edge-hover highlight: the hovered line's bound covers it.
+            if tool.hover_edge_line is not None:
+                bounds.append(tool.hover_edge_line.bound)
 
         return bounds
 
@@ -266,9 +280,14 @@ class CanvasWidget(Widget, can_focus=True):
         if isinstance(self.tool, SelectTool) and self.tool._resizing and self.tool._resize_shape:
             shape = self.tool._resize_shape
             if isinstance(shape, LineShape):
-                self._resize_snapshot = (shape, {"start": shape.start, "end": shape.end})
+                self._resize_snapshot = (shape, {"start": shape.start, "end": shape.end,
+                                                  "_joint_points": list(shape.joint_points),
+                                                  "_edges_modified": shape.edges_modified})
             else:
                 self._resize_snapshot = (shape, {"rect": shape.rect})
+        if isinstance(self.tool, SelectTool) and self.tool._edge_drag_line is not None:
+            line = self.tool._edge_drag_line
+            self._edge_drag_snapshot = (line, list(line.joint_points), line.edges_modified)
         self._refresh_dirty_since(before)
 
     def on_mouse_move(self, event: MouseMove) -> None:
@@ -285,14 +304,42 @@ class CanvasWidget(Widget, can_focus=True):
             # Hover swap: only the old + new hovered shapes change appearance.
             old = self.tool.hover_shape
             new = self.canvas.shape_at(col, row)
-            if new != old:
+            old_edge_line = self.tool.hover_edge_line
+            old_edge_index = self.tool.hover_edge_index
+            old_edge_whole = self.tool.hover_edge_whole
+            self.tool.update_hover(col, row)
+            self._update_pointer_for_hover()
+            edge_changed = (old_edge_line is not self.tool.hover_edge_line
+                            or old_edge_index != self.tool.hover_edge_index
+                            or old_edge_whole != self.tool.hover_edge_whole)
+            if new != old or edge_changed:
                 self.tool.hover_shape = new
                 dirty = [s.bound for s in (old, new) if s is not None]
+                if old_edge_line is not None:
+                    dirty.append(old_edge_line.bound)
+                if self.tool.hover_edge_line is not None:
+                    dirty.append(self.tool.hover_edge_line.bound)
                 rect = self._union(dirty)
                 if rect is None:
                     self.refresh()
                 else:
                     self.refresh_rect(rect)
+
+    def _update_pointer_for_hover(self) -> None:
+        if not isinstance(self.tool, SelectTool):
+            self.styles.pointer = "default"
+            return
+        if self.tool.hover_edge_whole:
+            self.styles.pointer = "move"
+        elif self.tool.hover_edge_line is not None and self.tool.hover_edge_index is not None:
+            line = self.tool.hover_edge_line
+            idx = self.tool.hover_edge_index
+            if line.edge_is_horizontal(idx):
+                self.styles.pointer = "ns-resize"
+            else:
+                self.styles.pointer = "ew-resize"
+        else:
+            self.styles.pointer = "default"
 
     def on_mouse_up(self, event: MouseUp) -> None:
         if self._editing:
@@ -306,6 +353,9 @@ class CanvasWidget(Widget, can_focus=True):
         was_moving = (isinstance(self.tool, SelectTool) and
                       self.tool._moving and self.tool.selected and self._move_start)
         was_resizing = (isinstance(self.tool, SelectTool) and self.tool._resizing)
+        was_edge_dragging = (isinstance(self.tool, SelectTool)
+                             and self.tool._edge_drag_line is not None
+                             and self._edge_drag_snapshot is not None)
         before = self._tool_dirty_bounds()
         if isinstance(self.tool, SelectTool):
             result = self.tool.on_mouse_up(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta,
@@ -324,6 +374,11 @@ class CanvasWidget(Widget, can_focus=True):
         elif was_resizing and self._resize_snapshot:
             shape, old_attrs = self._resize_snapshot
             self.post_message(self.ShapeResized(shape, old_attrs))
+        elif was_edge_dragging and self._edge_drag_snapshot:
+            line, before_joints, before_modified = self._edge_drag_snapshot
+            if list(line.joint_points) != before_joints or line.edges_modified != before_modified:
+                self.post_message(self.LineEdgeMoved(line, before_joints, before_modified))
         self._move_start = None
         self._resize_snapshot = None
+        self._edge_drag_snapshot = None
         self._refresh_dirty_since(before)

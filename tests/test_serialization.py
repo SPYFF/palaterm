@@ -258,3 +258,36 @@ def test_charset_round_trip(charset: CharSet, tmp_path: Path) -> None:
     save_canvas(c, a, charset)
     _, loaded_charset = load_canvas(a)
     assert loaded_charset is charset
+
+
+def test_round_trip_preserves_edge_modified_joints(tmp_path: Path) -> None:
+    """An edge-dragged line keeps its custom joint path through save/load."""
+    c = Canvas()
+    line = LineShape(Point(0, 0), Point(10, 4), line_style=LineStyle.ORTHOGONAL)
+    line.id = "l0"
+    line.start_side = "left"
+    line.end_side = "left"
+    line._recompute()
+    line.move_edge(1, Point(7, 2))
+    expected = list(line.joint_points)
+    c.add_shape(line)
+    p = tmp_path / "x.palaterm"
+    save_canvas(c, p)
+    loaded, _ = load_canvas(p)
+    reloaded = loaded.shapes[0]
+    assert isinstance(reloaded, LineShape)
+    assert reloaded.edges_modified
+    assert reloaded.joint_points == expected
+
+
+def test_unedited_line_omits_joint_fields_from_disk(tmp_path: Path) -> None:
+    """Unmodified lines round-trip without bloating the file."""
+    c = Canvas()
+    line = LineShape(Point(0, 0), Point(5, 3), line_style=LineStyle.ORTHOGONAL)
+    line.id = "l0"
+    c.add_shape(line)
+    p = tmp_path / "x.palaterm"
+    save_canvas(c, p)
+    raw = p.read_text()
+    assert '"j"' not in raw
+    assert '"em"' not in raw

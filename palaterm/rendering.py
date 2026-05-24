@@ -21,6 +21,7 @@ _FG_GREEN = RichStyle(color="green")
 _FG_RED = RichStyle(color="red")
 _FG_MAGENTA = RichStyle(color="bright_magenta")
 _FG_SNAP = RichStyle(color="green", bold=True)
+_FG_EDGE_HOVER = RichStyle(color="bright_yellow", bold=True)
 _FG_HIGHLIGHT = {
     "yellow": RichStyle(color="yellow"),
     "bright_cyan": RichStyle(color="bright_cyan"),
@@ -55,6 +56,7 @@ class FrameRenderer:
         highlight_cells: dict[tuple[int, int], str] = {}
         handle_cells: set[tuple[int, int]] = set()
         snap_edge_cells: set[tuple[int, int]] = set()
+        edge_hover_cells: set[tuple[int, int]] = set()
 
         if isinstance(tool, SelectTool):
             for shape in tool.selected:
@@ -70,6 +72,8 @@ class FrameRenderer:
             # Snap edge highlight for line handle drag
             if hasattr(tool, 'snap_target') and tool.snap_target:
                 snap_edge_cells = self._get_edge_cells(tool.snap_target)
+            # Edge-hover highlight: hovered segment, or whole line on corner.
+            edge_hover_cells = self._get_edge_hover_cells(tool, charset)
 
         # Snap edge highlight for line tool
         if isinstance(tool, LineTool) and hasattr(tool, 'snap_target') and tool.snap_target:
@@ -87,8 +91,30 @@ class FrameRenderer:
             else:
                 sel_braille = braille_rect(sel_rect.left, sel_rect.top, sel_rect.right, sel_rect.bottom, charset)
 
-        self._cache = (cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells, cell_styles)
+        self._cache = (cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells, cell_styles, edge_hover_cells)
         return self._cache
+
+    def _get_edge_hover_cells(self, tool: SelectTool, charset: CharSet) -> set[tuple[int, int]]:
+        line = tool.hover_edge_line
+        if line is None:
+            return set()
+        if tool.hover_edge_whole:
+            return set(line.render(charset).keys())
+        idx = tool.hover_edge_index
+        if idx is None:
+            return set()
+        joints = line.joint_points
+        if idx < 0 or idx >= len(joints) - 1:
+            return set()
+        p1, p2 = joints[idx], joints[idx + 1]
+        cells: set[tuple[int, int]] = set()
+        if p1.row == p2.row:
+            for c in range(min(p1.col, p2.col), max(p1.col, p2.col) + 1):
+                cells.add((c, p1.row))
+        else:
+            for r in range(min(p1.row, p2.row), max(p1.row, p2.row) + 1):
+                cells.add((p1.col, r))
+        return cells
 
     def _get_edge_cells(self, snap_result) -> set[tuple[int, int]]:
         """Get the cells along the target shape's snapped edge."""
@@ -115,7 +141,7 @@ class FrameRenderer:
 
     def render_line(self, y: int, viewport: Rect, tool: DrawTool | SelectTool | None, base_style: RichStyle,
                     charset: CharSet = CharSet.UNICODE) -> Strip:
-        cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells, cell_styles = self._ensure_cache(
+        cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells, cell_styles, edge_hover_cells = self._ensure_cache(
             viewport, tool, base_style, charset
         )
         row = y + viewport.top
@@ -128,6 +154,7 @@ class FrameRenderer:
         cyan_style = base_style + _FG_CYAN
         magenta_style = base_style + _FG_MAGENTA
         snap_style = base_style + _FG_SNAP
+        edge_hover_style = base_style + _FG_EDGE_HOVER
         highlight_styles = {k: base_style + v for k, v in _FG_HIGHLIGHT.items()}
 
         # Selection rect color based on modifier
@@ -164,6 +191,8 @@ class FrameRenderer:
                 segments.append(Segment(handle_ch, magenta_style))
             elif pos in snap_edge_cells:
                 segments.append(Segment(ch, snap_style))
+            elif pos in edge_hover_cells:
+                segments.append(Segment(ch, edge_hover_style))
             elif pos in highlight_cells:
                 segments.append(Segment(ch, highlight_styles[highlight_cells[pos]]))
             elif pos in cell_styles:

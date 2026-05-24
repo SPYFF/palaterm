@@ -224,3 +224,143 @@ def test_line_hit_test_orthogonal_path() -> None:
         assert l.hit_test(5, row), f"miss at (5, {row})"
     # Off the path.
     assert not l.hit_test(2, 2)
+
+
+# --- Line edge-drag (joint state, edge_at, move_edge, move_anchor) ---
+
+def test_line_edge_at_returns_index_for_interior_cells() -> None:
+    """L-shape line: each segment's interior cells map to its edge index."""
+    l = LineShape(Point(0, 0), Point(5, 3), line_style=LineStyle.ORTHOGONAL)
+    # Joints: (0,0) -> (5,0) -> (5,3)
+    # Edge 0 interior: (1..4, 0). Edge 1 interior: (5, 1..2).
+    assert l.edge_at(2, 0) == 0
+    assert l.edge_at(5, 2) == 1
+    # Joint (corner) returns None.
+    assert l.edge_at(5, 0) is None
+    # Endpoints return None.
+    assert l.edge_at(0, 0) is None
+    assert l.edge_at(5, 3) is None
+    # Off the path.
+    assert l.edge_at(2, 2) is None
+
+
+def test_line_joint_at_excludes_endpoints() -> None:
+    l = LineShape(Point(0, 0), Point(5, 3), line_style=LineStyle.ORTHOGONAL)
+    assert l.joint_at(5, 0) == 1
+    assert l.joint_at(0, 0) is None
+    assert l.joint_at(5, 3) is None
+
+
+def test_line_edge_at_returns_none_for_single_segment() -> None:
+    l = LineShape(Point(0, 0), Point(5, 0), line_style=LineStyle.ORTHOGONAL)
+    assert l.edge_at(2, 0) is None
+
+
+def test_line_move_edge_middle_segment_translates_perpendicular() -> None:
+    """Z-shape: dragging middle vertical edge horizontally slides it."""
+    l = LineShape(Point(0, 0), Point(10, 4), line_style=LineStyle.ORTHOGONAL)
+    l.start_side = "left"
+    l.end_side = "left"
+    l._recompute()
+    # Z: (0,0) -> (5,0) -> (5,4) -> (10,4); middle edge index 1 is vertical.
+    assert l.joint_points == [Point(0, 0), Point(5, 0), Point(5, 4), Point(10, 4)]
+    l.move_edge(1, Point(7, 2))
+    assert l.edges_modified
+    assert l.joint_points == [Point(0, 0), Point(7, 0), Point(7, 4), Point(10, 4)]
+
+
+def test_line_move_edge_first_edge_inserts_corner_joint() -> None:
+    """First edge drag introduces a new joint at the anchored endpoint."""
+    l = LineShape(Point(0, 0), Point(5, 3), line_style=LineStyle.ORTHOGONAL)
+    # L: (0,0) -> (5,0) -> (5,3). Edge 0 horizontal.
+    l.move_edge(0, Point(0, 2))
+    assert l.edges_modified
+    # Anchor (0,0) stays, new corner at (0,2), far end of edge 0 slides to (5,2).
+    assert l.joint_points[0] == Point(0, 0)
+    assert l.joint_points[-1] == Point(5, 3)
+    assert len(l.joint_points) >= 3
+
+
+def test_line_move_anchor_unedited_rederives_path() -> None:
+    """An unedited line still recomputes from start/end on anchor move."""
+    l = LineShape(Point(0, 0), Point(5, 3), line_style=LineStyle.ORTHOGONAL)
+    l.move_anchor("end", Point(8, 5))
+    assert l.end == Point(8, 5)
+    assert not l.edges_modified
+
+
+def test_line_move_anchor_edited_keeps_custom_routing() -> None:
+    """Once edited, anchor move slides endpoint without resetting the path."""
+    l = LineShape(Point(0, 0), Point(10, 4), line_style=LineStyle.ORTHOGONAL)
+    l.start_side = "left"
+    l.end_side = "left"
+    l._recompute()
+    l.move_edge(1, Point(7, 2))
+    custom_joint_count = len(l.joint_points)
+    l.move_anchor("end", Point(11, 4))
+    assert l.end == Point(11, 4)
+    assert len(l.joint_points) == custom_joint_count
+    assert l.edges_modified
+
+
+def test_line_reset_edges_modified_clears_state() -> None:
+    l = LineShape(Point(0, 0), Point(5, 3), line_style=LineStyle.ORTHOGONAL)
+    l.move_edge(0, Point(0, 2))
+    assert l.edges_modified
+    l.reset_edges_modified()
+    assert not l.edges_modified
+    assert l.joint_points == [Point(0, 0), Point(5, 0), Point(5, 3)]
+
+
+def test_line_move_edge_collapses_joints_aligned_with_endpoint() -> None:
+    """Dragging the middle edge to align with an endpoint reduces to L-shape."""
+    l = LineShape(Point(0, 0), Point(10, 4), line_style=LineStyle.ORTHOGONAL)
+    l.start_side = "top"
+    l.end_side = "bottom"
+    l._recompute()
+    # Z: (0,0) -> (0,2) -> (10,2) -> (10,4); middle horizontal edge index 1.
+    assert len(l.joint_points) == 4
+    # Drag middle edge up to the start's row.
+    l.move_edge(1, Point(5, 0))
+    # Should collapse to L-shape: (0,0) -> (10,0) -> (10,4).
+    assert l.joint_points == [Point(0, 0), Point(10, 0), Point(10, 4)]
+
+
+def test_line_follow_anchor_drops_user_edge_edits() -> None:
+    """follow_anchor wipes edge customizations and re-derives from sides."""
+    l = LineShape(Point(0, 0), Point(10, 4), line_style=LineStyle.ORTHOGONAL)
+    l.start_side = "left"
+    l.end_side = "left"
+    l._recompute()
+    l.move_edge(1, Point(7, 2))
+    assert l.edges_modified
+    edited_joints = list(l.joint_points)
+    l.follow_anchor("end", Point(11, 4))
+    assert not l.edges_modified
+    assert l.end == Point(11, 4)
+    # Joints come from _recompute using the kept side hints — Z-shape, not the
+    # user's tweaked routing.
+    assert l.joint_points != edited_joints
+    mid_col = (0 + 11) // 2
+    assert l.joint_points == [Point(0, 0), Point(mid_col, 0), Point(mid_col, 4), Point(11, 4)]
+
+
+def test_line_follow_anchor_unedited_just_recomputes() -> None:
+    """No-op on edges_modified when there were no user edits to drop."""
+    l = LineShape(Point(0, 0), Point(5, 3), line_style=LineStyle.ORTHOGONAL)
+    l.follow_anchor("end", Point(7, 2))
+    assert l.end == Point(7, 2)
+    assert not l.edges_modified
+
+
+def test_line_move_translates_authoritative_joints() -> None:
+    """Move on an edge-edited line shifts every stored joint by the delta."""
+    l = LineShape(Point(0, 0), Point(10, 4), line_style=LineStyle.ORTHOGONAL)
+    l.start_side = "left"
+    l.end_side = "left"
+    l._recompute()
+    l.move_edge(1, Point(7, 2))
+    before = list(l.joint_points)
+    l.move(3, 1)
+    after = list(l.joint_points)
+    assert all(b.col + 3 == a.col and b.row + 1 == a.row for b, a in zip(before, after))

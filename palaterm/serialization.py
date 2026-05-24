@@ -29,6 +29,7 @@ Key cipher (saved file ↔ source code):
     box style         b fl tx ha va rf
     line endpoints    e  → [start_col, start_row, end_col, end_row]
     line style        ls se ee ss es sb eb
+    line joints       j em
     connector         lid a tid s r
 
 Value cipher (per field, defaults are omitted entirely):
@@ -81,6 +82,8 @@ _LONG_TO_SHORT: dict[str, str] = {
     "start_ending": "se",  "end_ending": "ee",
     "start_side":   "ss",  "end_side":   "es",
     "start_sub":    "sb",  "end_sub":    "eb",
+    "joints":         "j",
+    "edges_modified": "em",
     # connector
     "line_id":   "lid",
     "anchor":    "a",
@@ -246,6 +249,9 @@ def _serialize_line(s: LineShape) -> dict:
         d["start_sub"] = list(s.start_sub)
     if s.end_sub:
         d["end_sub"] = list(s.end_sub)
+    if s.edges_modified:
+        d["edges_modified"] = True
+        d["joints"] = [[p.col, p.row] for p in s.joint_points]
     _add_colors(d, s)
     return _drop_defaults(d, _LINE_DEFAULTS)
 
@@ -311,7 +317,13 @@ def _deserialize_line(d: dict) -> LineShape:
     if "end_sub" in d:
         s.end_sub = tuple(d["end_sub"])
     _apply_colors(s, d)
-    s._recompute()
+    if d.get("edges_modified") and d.get("joints"):
+        s._joint_points = [Point(c, r) for c, r in d["joints"]]
+        s._edges_modified = True
+        s.start = s._joint_points[0]
+        s.end = s._joint_points[-1]
+    else:
+        s._recompute()
     return s
 
 

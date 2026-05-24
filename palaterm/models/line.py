@@ -13,6 +13,28 @@ from .enums import (
 )
 
 
+def _reduce_joints(joints: list[Point]) -> list[Point]:
+    """Drop redundant joints: collinear triples and zero-length edges."""
+    if len(joints) < 3:
+        return list(joints)
+    out = [joints[0]]
+    for i in range(1, len(joints) - 1):
+        prev = out[-1]
+        curr = joints[i]
+        nxt = joints[i + 1]
+        if prev.col == curr.col and prev.row == curr.row:
+            continue
+        # Collinear: prev, curr, nxt all share a row or all share a column.
+        if prev.row == curr.row == nxt.row:
+            continue
+        if prev.col == curr.col == nxt.col:
+            continue
+        out.append(curr)
+    if joints[-1].col != out[-1].col or joints[-1].row != out[-1].row:
+        out.append(joints[-1])
+    return out
+
+
 _BRAILLE_DOTS = {
     (0, 0): 0, (1, 0): 3,
     (0, 1): 1, (1, 1): 4,
@@ -149,9 +171,19 @@ class LineShape(Shape):
         self.start_sub: tuple[int, int] | None = None  # (sub_x: 0-1, sub_y: 0-3)
         self.end_sub: tuple[int, int] | None = None
         self._joint_points: list[Point] = []
+        # Once an edge has been dragged, the joint path becomes authoritative
+        # and _recompute() must not rederive it. See docs/adr/0001.
+        self._edges_modified: bool = False
         self._recompute()
 
     def _recompute(self) -> None:
+        # Authoritative joints: keep the user's custom routing. Endpoint moves
+        # are handled via move_anchor(); _recompute is a no-op past that point.
+        if self._edges_modified and self._joint_points:
+            self.start = self._joint_points[0]
+            self.end = self._joint_points[-1]
+            return
+
         s, e = self.start, self.end
         if s.col == e.col or s.row == e.row:
             # Straight line (single segment)
@@ -179,6 +211,150 @@ class LineShape(Shape):
             # Start goes vertical, end goes horizontal — L-shape corner at (s.col, e.row)
             self._joint_points = [s, Point(s.col, e.row), e]
 
+    @property
+    def joint_points(self) -> list[Point]:
+        return list(self._joint_points)
+
+    @property
+    def edges_modified(self) -> bool:
+        return self._edges_modified
+
+    def edge_at(self, col: int, row: int) -> int | None:
+        """Return the edge index whose interior cell is (col, row), else None.
+
+        Excludes joint cells (corners and endpoints): a corner shared between
+        two edges returns None so callers can distinguish corners from edges.
+        """
+        if self.line_style != LineStyle.ORTHOGONAL or len(self._joint_points) < 3:
+            return None
+        for joint in self._joint_points:
+            if joint.col == col and joint.row == row:
+                return None
+        for i in range(len(self._joint_points) - 1):
+            p1, p2 = self._joint_points[i], self._joint_points[i + 1]
+            if p1.row == p2.row == row and min(p1.col, p2.col) < col < max(p1.col, p2.col):
+                return i
+            if p1.col == p2.col == col and min(p1.row, p2.row) < row < max(p1.row, p2.row):
+                return i
+        return None
+
+    def joint_at(self, col: int, row: int) -> int | None:
+        """Return the index of the joint at (col, row), else None.
+
+        Endpoints (index 0 and last) are excluded — they have their own handles.
+        """
+        if self.line_style != LineStyle.ORTHOGONAL or len(self._joint_points) < 3:
+            return None
+        for i in range(1, len(self._joint_points) - 1):
+            p = self._joint_points[i]
+            if p.col == col and p.row == row:
+                return i
+        return None
+
+    def edge_is_horizontal(self, edge_index: int) -> bool:
+        p1 = self._joint_points[edge_index]
+        p2 = self._joint_points[edge_index + 1]
+        return p1.row == p2.row
+
+    def move_edge(self, edge_index: int, point: Point) -> None:
+        """Slide an edge perpendicular to itself so it passes through ``point``.
+
+        First/last edges insert a new joint at the anchored endpoint.
+        Middle edges translate together with their two corner joints.
+        Adjacent collinear edges are merged afterward (reduce pass).
+        """
+        if edge_index < 0 or edge_index >= len(self._joint_points) - 1:
+            return
+        joints = list(self._joint_points)
+        last_edge = len(joints) - 2
+        if edge_index == 0 and edge_index == last_edge:
+            # Single-segment line: edge-drag would create a new joint on each
+            # end. Out of scope — single-segment is whole-line move.
+            return
+        is_horiz = self.edge_is_horizontal(edge_index)
+        p1 = joints[edge_index]
+        p2 = joints[edge_index + 1]
+
+        # Project a joint onto the dragged edge: keep its longitudinal axis,
+        # take ``point``'s perpendicular axis. Applied to an endpoint this
+        # produces the new corner joint; applied to a non-endpoint it slides
+        # that joint onto the new edge line.
+        def slide(j: Point) -> Point:
+            return Point(j.col, point.row) if is_horiz else Point(point.col, j.row)
+
+        if edge_index == 0:
+            joints[1] = slide(p2)
+            joints.insert(1, slide(p1))
+        elif edge_index == last_edge:
+            joints[edge_index] = slide(p1)
+            joints.insert(edge_index + 1, slide(p2))
+        else:
+            joints[edge_index] = slide(p1)
+            joints[edge_index + 1] = slide(p2)
+
+        self._joint_points = _reduce_joints(joints)
+        self._edges_modified = True
+        self.start = self._joint_points[0]
+        self.end = self._joint_points[-1]
+
+    def move_anchor(self, anchor: str, new_point: Point) -> None:
+        """Move start ('start') or end ('end') endpoint to ``new_point``.
+
+        On unedited lines, falls through to derived recompute. On edited
+        lines, slides the endpoint and adjusts the adjacent joint to keep the
+        first/last edge straight; if ``new_point`` is off-axis, the reduce
+        pass leaves the anchor and a new corner joint as separate points.
+        """
+        if anchor == "start":
+            self.start = new_point
+        elif anchor == "end":
+            self.end = new_point
+        else:
+            return
+        if not self._edges_modified or len(self._joint_points) < 3:
+            self._recompute()
+            return
+
+        joints = list(self._joint_points)
+        anchor_idx, adj_idx = (0, 1) if anchor == "start" else (-1, -2)
+        anchor_pt = joints[anchor_idx]
+        adj = joints[adj_idx]
+        joints[anchor_idx] = new_point
+        # Adjacent joint slides along whichever axis the connecting edge used,
+        # keeping that edge straight. If new_point is off-axis the adjacent
+        # joint is now the corner.
+        if adj.col == anchor_pt.col:
+            joints[adj_idx] = Point(new_point.col, adj.row)
+        else:
+            joints[adj_idx] = Point(adj.col, new_point.row)
+
+        self._joint_points = _reduce_joints(joints)
+        self._edges_modified = True
+        self.start = self._joint_points[0]
+        self.end = self._joint_points[-1]
+
+    def follow_anchor(self, anchor: str, new_point: Point) -> None:
+        """Move an endpoint to ``new_point`` and drop any user edge edits.
+
+        Used for connector-follow: when a connected box moves, the line is
+        treated like a freshly-routed line — derived joints recomputed from
+        scratch using the stored ``start_side``/``end_side`` hints. Any
+        user-applied edge customizations are intentionally discarded.
+        """
+        if anchor == "start":
+            self.start = new_point
+        elif anchor == "end":
+            self.end = new_point
+        else:
+            return
+        self.reset_edges_modified()
+
+    def reset_edges_modified(self) -> None:
+        """Clear the modified flag and let _recompute() rederive joints."""
+        self._edges_modified = False
+        self._joint_points = []
+        self._recompute()
+
     @staticmethod
     def _side_is_horizontal(side: str | None) -> bool | None:
         """Returns True if the side implies horizontal exit, False for vertical, None if unset."""
@@ -205,6 +381,8 @@ class LineShape(Shape):
     def move(self, dcol: int, drow: int) -> None:
         self.start = Point(self.start.col + dcol, self.start.row + drow)
         self.end = Point(self.end.col + dcol, self.end.row + drow)
+        if self._edges_modified:
+            self._joint_points = [Point(p.col + dcol, p.row + drow) for p in self._joint_points]
         self._recompute()
 
     def hit_test(self, col: int, row: int) -> bool:

@@ -12,7 +12,7 @@ from textual.binding import Binding
 from textual.containers import Vertical
 from textual.events import MouseUp
 
-from .commands import AddShape, AddShapes, CommandHistory, MoveShapes, RemoveShapes, TransformShapes
+from .commands import AddShape, AddShapes, CommandHistory, MoveLineEdge, MoveShapes, RemoveShapes, TransformShapes
 from .controllers import PanelController, ToolController
 from .serialization import load_canvas, save_canvas
 from .exporters import export_html, export_presenterm, export_svg
@@ -191,6 +191,10 @@ class PalatermApp(App):
         cmd = TransformShapes([(event.shape, event.old_attrs)])
         self.history.push(cmd)
 
+    def on_canvas_widget_line_edge_moved(self, event: CanvasWidget.LineEdgeMoved) -> None:
+        cmd = MoveLineEdge(event.line, event.before_joints, event.before_modified)
+        self.history.push(cmd)
+
     def on_tool_picker_tool_selected(self, event: ToolPicker.ToolSelected) -> None:
         self._switch_tool(event.tool_type)
 
@@ -223,6 +227,8 @@ class PalatermApp(App):
             for shape in tool.selected:
                 if isinstance(shape, LineShape):
                     shape.line_style = event.style
+                    # Switching style invalidates any edge-edited routing.
+                    shape.reset_edges_modified()
             cw.refresh()
         self._update_panels()
 

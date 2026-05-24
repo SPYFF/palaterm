@@ -34,6 +34,14 @@ class SelectTool:
         self.snap_target: object | None = None  # SnapResult during line handle drag
         self._modifier: str = "none"  # "none" | "add" | "remove"
         self._drag_start_f: tuple[float, float] | None = None
+        # Edge-drag state (orthogonal multi-segment lines).
+        self._edge_drag_line: LineShape | None = None
+        self._edge_drag_index: int | None = None
+        self._edge_snapshot: tuple[list[Point], bool] | None = None
+        # Hover state for edge highlighting (rendering reads these).
+        self.hover_edge_line: LineShape | None = None
+        self.hover_edge_index: int | None = None
+        self.hover_edge_whole: bool = False  # corner hover → highlight whole line
 
     def on_mouse_down(self, col: int, row: int, canvas, *, ctrl: bool = False, alt: bool = False,
                       pointer_x: float | None = None, pointer_y: float | None = None) -> Shape | None:
@@ -45,6 +53,22 @@ class SelectTool:
             if h is not None:
                 self._start_resize(shape, h, col, row)
                 return shape
+
+        # Edge-drag: clicking on the interior of a selected multi-segment
+        # orthogonal line's edge starts a perpendicular slide of that segment.
+        # Joint cells of selected lines fall through to whole-line move below.
+        for shape in self.selected:
+            if isinstance(shape, LineShape):
+                edge_idx = shape.edge_at(col, row)
+                if edge_idx is not None:
+                    self._edge_drag_line = shape
+                    self._edge_drag_index = edge_idx
+                    self._edge_snapshot = (shape.joint_points, shape.edges_modified)
+                    self._drag_start = Point(col, row)
+                    self._moving = False
+                    self._resizing = False
+                    self._rect_selecting = False
+                    return shape
 
         hit = canvas.shape_at(col, row)
         if hit and ctrl:
@@ -78,6 +102,34 @@ class SelectTool:
             self.selection_rect = None
             self.selection_rect_f = None
         return self.selected[0] if self.selected else None
+
+    def update_hover(self, col: int, row: int) -> tuple[LineShape | None, int | None, bool]:
+        """Recompute edge-hover state for selected lines.
+
+        Returns (line, edge_index, whole_line) tuple matching the new state.
+        ``edge_index`` is set when an edge interior is hovered; ``whole_line``
+        is True when a corner joint is hovered (whole-line move target).
+        """
+        new_line: LineShape | None = None
+        new_index: int | None = None
+        new_whole = False
+        for shape in self.selected:
+            if not isinstance(shape, LineShape):
+                continue
+            edge_idx = shape.edge_at(col, row)
+            if edge_idx is not None:
+                new_line = shape
+                new_index = edge_idx
+                break
+            joint_idx = shape.joint_at(col, row)
+            if joint_idx is not None:
+                new_line = shape
+                new_whole = True
+                break
+        self.hover_edge_line = new_line
+        self.hover_edge_index = new_index
+        self.hover_edge_whole = new_whole
+        return new_line, new_index, new_whole
 
     def _start_resize(self, shape: Shape, handle, col: int, row: int) -> None:
         from . import Handle
@@ -123,6 +175,21 @@ class SelectTool:
                 self._resize_anchor_f = anchor_map.get(handle)
 
     def on_mouse_drag(self, col: int, row: int, canvas, *, pointer_x: float | None = None, pointer_y: float | None = None) -> None:
+        if (self._edge_drag_line is not None and self._edge_drag_index is not None
+                and self._edge_snapshot is not None):
+            # Restore from the mouse-down snapshot so move_edge operates on a
+            # fresh state. Without this, reduce-induced topology changes make
+            # the stored edge index refer to a different edge mid-drag, and
+            # first/last edges spawn a new joint per mouse event.
+            line = self._edge_drag_line
+            before_joints, before_modified = self._edge_snapshot
+            line._joint_points = [Point(p.col, p.row) for p in before_joints]
+            line._edges_modified = before_modified
+            if before_joints:
+                line.start = before_joints[0]
+                line.end = before_joints[-1]
+            line.move_edge(self._edge_drag_index, Point(col, row))
+            return
         if self._resizing and self._resize_shape and self._resize_handle:
             self._apply_resize(col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y)
         elif self._moving and self.selected and self._drag_start:
@@ -141,10 +208,11 @@ class SelectTool:
                         if not isinstance(line, LineShape):
                             continue
                         if conn.anchor == Anchor.START:
-                            line.start = Point(line.start.col + dcol, line.start.row + drow)
+                            new_pt = Point(line.start.col + dcol, line.start.row + drow)
+                            line.follow_anchor("start", new_pt)
                         else:
-                            line.end = Point(line.end.col + dcol, line.end.row + drow)
-                        line._recompute()
+                            new_pt = Point(line.end.col + dcol, line.end.row + drow)
+                            line.follow_anchor("end", new_pt)
                 self._drag_start = Point(col, row)
         elif self._rect_selecting and self._drag_start:
             self.selection_rect = Rect.from_points(self._drag_start, Point(col, row))
@@ -172,12 +240,11 @@ class SelectTool:
                 side_name = None
 
             if handle == Handle.LINE_START:
-                shape.start = pt
                 shape.start_side = side_name
+                shape.move_anchor("start", pt)
             else:
-                shape.end = pt
                 shape.end_side = side_name
-            shape._recompute()
+                shape.move_anchor("end", pt)
         elif (isinstance(shape, BoxShape) and shape.border == BorderStyle.BRAILLE
                 and self._resize_anchor_f is not None
                 and pointer_x is not None and pointer_y is not None):
@@ -209,6 +276,13 @@ class SelectTool:
 
     def on_mouse_up(self, col: int, row: int, canvas, *, ctrl: bool = False, alt: bool = False,
                     pointer_x: float | None = None, pointer_y: float | None = None) -> Shape | None:
+        if self._edge_drag_line is not None:
+            line = self._edge_drag_line
+            self._edge_drag_line = None
+            self._edge_drag_index = None
+            # Snapshot is left intact; the widget reads it after on_mouse_up
+            # to construct the MoveLineEdge command.
+            return line
         if self._resizing:
             self._apply_resize(col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y)
             # Commit connector for line handle
