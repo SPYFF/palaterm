@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.message import Message
-from textual.widgets import Button, Label, Static
+from textual.widgets import Button
 
 from ...tools import ToolType
+from .collapsible import CollapsiblePanel
 
 _TOOL_LABELS = [
     ("s Select", ToolType.SELECT),
@@ -16,14 +17,10 @@ _TOOL_LABELS = [
 ]
 
 
-class ToolPicker(Static):
+class ToolPicker(CollapsiblePanel):
     """Tool selection via Buttons."""
 
     DEFAULT_CSS = """
-    ToolPicker {
-        width: 100%;
-        height: auto;
-    }
     ToolPicker Button {
         width: 100%;
         text-align: left;
@@ -35,8 +32,10 @@ class ToolPicker(Static):
             super().__init__()
             self.tool_type = tool_type
 
-    def compose(self) -> ComposeResult:
-        yield Label("Tools", classes="panel-label")
+    def __init__(self) -> None:
+        super().__init__(title="Tools")
+
+    def compose_body(self) -> ComposeResult:
         for label, tool_type in _TOOL_LABELS:
             yield Button(label, id=f"tool-{tool_type.name.lower()}", compact=True)
 

@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
 from textual.message import Message
-from textual.widgets import Button, Label
+from textual.widgets import Button
 
 from ...models import LineStyle
+from .collapsible import CollapsiblePanel
 
 _STYLES = [
     ("Orthogonal", LineStyle.ORTHOGONAL),
@@ -15,13 +15,10 @@ _STYLES = [
 ]
 
 
-class LineStylePanel(Vertical):
+class LineStylePanel(CollapsiblePanel):
     """Line style picker: Orthogonal or Straight."""
 
     DEFAULT_CSS = """
-    LineStylePanel {
-        height: auto;
-    }
     LineStylePanel Button {
         width: 100%;
     }
@@ -33,10 +30,9 @@ class LineStylePanel(Vertical):
             self.style = style
 
     def __init__(self) -> None:
-        super().__init__(classes="panel")
+        super().__init__(title="Line", classes="panel")
 
-    def compose(self) -> ComposeResult:
-        yield Label("Line", classes="panel-label")
+    def compose_body(self) -> ComposeResult:
         for label, style in _STYLES:
             yield Button(label, id=f"lstyle-{style.name.lower()}", compact=True)
 

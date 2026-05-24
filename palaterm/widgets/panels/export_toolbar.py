@@ -1,12 +1,13 @@
-"""Always-visible export toolbar with Text / HTML / SVG buttons."""
+"""Export panel with TXT / HTM / SVG / PT buttons."""
 
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal
 from textual.message import Message
-from textual.widgets import Button, Label
+from textual.widgets import Button
 
+from .collapsible import CollapsiblePanel
 
 _EXPORT_FORMATS = [
     ("TXT", "text"),
@@ -16,30 +17,22 @@ _EXPORT_FORMATS = [
 ]
 
 
-class ExportToolbar(Vertical):
-    """Three buttons that copy the canvas to the clipboard in different formats."""
+class ExportPanel(CollapsiblePanel):
+    """Buttons that copy the canvas to the clipboard in different formats."""
 
     DEFAULT_CSS = """
-    ExportToolbar {
-        height: 2;
+    ExportPanel {
         width: 16;
     }
-    ExportToolbar > Horizontal {
+    ExportPanel > .panel-body Horizontal {
         width: 100%;
         height: 1;
     }
-    ExportToolbar Button {
+    ExportPanel Button {
         width: 1fr;
         height: 1;
         padding: 0;
         min-width: 0;
-    }
-    ExportToolbar Label {
-        width: 100%;
-        height: 1;
-        padding: 0;
-        text-style: dim;
-        text-align: center;
     }
     """
 
@@ -48,8 +41,10 @@ class ExportToolbar(Vertical):
             super().__init__()
             self.format = format
 
-    def compose(self) -> ComposeResult:
-        yield Label("Export")
+    def __init__(self) -> None:
+        super().__init__(title="Export")
+
+    def compose_body(self) -> ComposeResult:
         with Horizontal():
             for label, fmt in _EXPORT_FORMATS:
                 yield Button(label, id=f"export-{fmt}", compact=True)

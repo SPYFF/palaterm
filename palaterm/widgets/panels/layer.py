@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal
 from textual.message import Message
-from textual.widgets import Button, Label
+from textual.widgets import Button
+
+from .collapsible import CollapsiblePanel
 
 _LAYER_ACTIONS = [
     ("⤒", "bring_to_front"),
@@ -15,15 +17,15 @@ _LAYER_ACTIONS = [
 ]
 
 
-class LayerPanel(Vertical):
-    """Layer reordering buttons, anchored to bottom."""
+class LayerPanel(CollapsiblePanel):
+    """Layer reordering buttons."""
 
     DEFAULT_CSS = """
-    LayerPanel {
-        height: auto;
-    }
     LayerPanel Button {
         width: 1fr;
+    }
+    LayerPanel Horizontal {
+        height: 1;
     }
     """
 
@@ -33,10 +35,9 @@ class LayerPanel(Vertical):
             self.action = action
 
     def __init__(self) -> None:
-        super().__init__(classes="panel")
+        super().__init__(title="Layer", classes="panel")
 
-    def compose(self) -> ComposeResult:
-        yield Label("Layer", classes="panel-label")
+    def compose_body(self) -> ComposeResult:
         with Horizontal():
             for icon, action in _LAYER_ACTIONS:
                 yield Button(icon, id=f"layer-{action}", compact=True)

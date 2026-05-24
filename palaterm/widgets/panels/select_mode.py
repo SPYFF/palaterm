@@ -3,20 +3,17 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Vertical
 from textual.message import Message
-from textual.widgets import Button, Label
+from textual.widgets import Button
 
 from ...tools import SelectMode
+from .collapsible import CollapsiblePanel
 
 
-class SelectModePanel(Vertical):
+class SelectModePanel(CollapsiblePanel):
     """Select mode picker: Full or Partial."""
 
     DEFAULT_CSS = """
-    SelectModePanel {
-        height: auto;
-    }
     SelectModePanel Button {
         width: 100%;
     }
@@ -28,10 +25,9 @@ class SelectModePanel(Vertical):
             self.mode = mode
 
     def __init__(self) -> None:
-        super().__init__(classes="panel")
+        super().__init__(title="Select", classes="panel")
 
-    def compose(self) -> ComposeResult:
-        yield Label("Select", classes="panel-label")
+    def compose_body(self) -> ComposeResult:
         yield Button("Full", id="mode-full", compact=True)
         yield Button("Part", id="mode-partial", compact=True)
 

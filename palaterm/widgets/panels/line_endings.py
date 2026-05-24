@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical
+from textual.containers import Horizontal
 from textual.message import Message
-from textual.widgets import Button, Label
+from textual.widgets import Button
 
 from ...models.charset import CharSet
 from ...models.enums import EndingStyle
+from .collapsible import CollapsiblePanel
 
 _UNICODE_GLYPHS = {
     EndingStyle.NONE: "×",
@@ -54,23 +55,22 @@ class EndingButton(Button):
         self.post_message(self.Clicked(self.ending, self.endpoint))
 
 
-class LineEndingsPanel(Vertical):
+class LineEndingsPanel(CollapsiblePanel):
     """Line endings picker: 5 styles × 2 rows (start/end)."""
 
     DEFAULT_CSS = """
-    LineEndingsPanel {
-        height: auto;
-    }
     LineEndingsPanel Button {
         width: 1fr;
+    }
+    LineEndingsPanel Horizontal {
+        height: 1;
     }
     """
 
     def __init__(self) -> None:
-        super().__init__(classes="panel")
+        super().__init__(title="Endings", classes="panel")
 
-    def compose(self) -> ComposeResult:
-        yield Label("Endings", classes="panel-label")
+    def compose_body(self) -> ComposeResult:
         with Horizontal():
             for style in EndingStyle:
                 yield EndingButton(style, "start", id=f"ending-start-{style.name.lower()}")

@@ -19,8 +19,8 @@ from .exporters import export_html, export_presenterm, export_svg
 from .models import BoxShape, CharSet, EndingStyle, HAlign, LineShape, LineStyle, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, ToolType
 from .widgets import (
-    AlignCell, BorderStylePanel, CanvasWidget, ColorToolbar, ConfirmModal, EndingButton,
-    ExportToolbar, FilePathModal, LayerPanel, LineEndingsPanel, LineStylePanel,
+    AlignCell, BorderStylePanel, CanvasWidget, ColorPanel, ConfirmModal, EndingButton,
+    ExportPanel, FilePathModal, LayerPanel, LineEndingsPanel, LineStylePanel,
     SelectModePanel, ShapeAlignPanel, StatusBar, TextAlignPanel, ToolPicker,
 )
 
@@ -99,13 +99,6 @@ class PalatermApp(App):
         min-width: 0;
         height: 1;
     }
-    .panel-label {
-        width: 100%;
-        height: 1;
-        padding: 0;
-        text-style: dim;
-        text-align: center;
-    }
     #sidebar Button.active {
         background: $surface-darken-1;
         text-style: bold;
@@ -167,8 +160,8 @@ class PalatermApp(App):
             yield ShapeAlignPanel()
             yield Vertical(id="sidebar-spacer")
             yield LayerPanel()
-            yield ColorToolbar()
-            yield ExportToolbar()
+            yield ColorPanel()
+            yield ExportPanel()
         yield CanvasWidget()
         yield StatusBar()
 
@@ -299,7 +292,7 @@ class PalatermApp(App):
                     s.move(0, target - b.bottom)
         cw.refresh()
 
-    def on_color_toolbar_color_changed(self, event: ColorToolbar.ColorChanged) -> None:
+    def on_color_panel_color_changed(self, event: ColorPanel.ColorChanged) -> None:
         cw = self.canvas_widget
         tool = cw.tool
         if not isinstance(tool, SelectTool) or not tool.selected:
@@ -391,7 +384,7 @@ class PalatermApp(App):
     def action_export(self) -> None:
         self._copy_export("text")
 
-    def on_export_toolbar_export_requested(self, event: ExportToolbar.ExportRequested) -> None:
+    def on_export_panel_export_requested(self, event: ExportPanel.ExportRequested) -> None:
         self._copy_export(event.format)
 
     def _copy_export(self, fmt: str) -> None:

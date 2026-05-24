@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from textual.app import ComposeResult
 from textual.message import Message
-from textual.widgets import Button, Label, Static
+from textual.widgets import Button
 
 from ...models import HAlign, VAlign
+from .collapsible import CollapsiblePanel
 
 _ALIGN_CHARS = [
     ["┌", "─", "┐"],
@@ -36,17 +37,14 @@ class AlignCell(Button):
         self.post_message(self.Clicked(self.halign, self.valign))
 
 
-class TextAlignPanel(Static):
+class TextAlignPanel(CollapsiblePanel):
     """3x3 text alignment picker grid."""
 
     DEFAULT_CSS = """
-    TextAlignPanel {
+    TextAlignPanel > .panel-body {
         layout: grid;
-        grid-size: 3 4;
+        grid-size: 3 3;
         grid-columns: 1fr 1fr 1fr;
-    }
-    TextAlignPanel Label.panel-label {
-        column-span: 3;
     }
     TextAlignPanel AlignCell {
         width: 100%;
@@ -55,10 +53,9 @@ class TextAlignPanel(Static):
     """
 
     def __init__(self) -> None:
-        super().__init__(classes="panel")
+        super().__init__(title="Text align", classes="panel")
 
-    def compose(self) -> ComposeResult:
-        yield Label("Text align", classes="panel-label")
+    def compose_body(self) -> ComposeResult:
         for row in range(3):
             for col in range(3):
                 yield AlignCell(
