@@ -108,6 +108,18 @@ def test_box_hit_test_borderless_requires_text() -> None:
     assert with_text.hit_test(2, 1)
 
 
+def test_box_hit_test_borderless_with_fill_is_clickable() -> None:
+    """Fill makes a borderless, textless box clickable across its bound."""
+    occluder = BoxShape(Rect(0, 0, 4, 3), border=BorderStyle.NONE,
+                        fill=FillStyle.SPACE)
+    assert occluder.hit_test(2, 1)
+    pattern = BoxShape(Rect(0, 0, 4, 3), border=BorderStyle.NONE,
+                       fill=FillStyle.FULL)
+    assert pattern.hit_test(0, 0)
+    assert pattern.hit_test(3, 2)
+    assert not pattern.hit_test(4, 0)
+
+
 def test_box_resize_f_syncs_rect() -> None:
     """resize_f sets rect_f (sub-cell precision) and a synced integer rect."""
     box = BoxShape(Rect(0, 0, 1, 1), border=BorderStyle.BRAILLE)

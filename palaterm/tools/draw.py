@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 
 from ..geometry import Point, Rect
-from ..models import BorderStyle, BoxShape, EndingStyle, LineShape, LineStyle, Shape
+from ..models import BorderStyle, BoxShape, EndingStyle, FillStyle, LineShape, LineStyle, Shape
 from ..connectors import Anchor, Connector, find_snap
 
 
@@ -45,13 +45,16 @@ class DrawTool:
 
 
 class RectangleTool(DrawTool):
-    def __init__(self, border_style: BorderStyle = BorderStyle.LIGHT) -> None:
+    def __init__(self, border_style: BorderStyle = BorderStyle.LIGHT,
+                 fill: FillStyle = FillStyle.NONE) -> None:
         super().__init__()
         self.border_style = border_style
+        self.fill = fill
         self._start_f: tuple[float, float] | None = None
 
     def _create_shape(self, start: Point) -> Shape:
-        return BoxShape(Rect(start.col, start.row, 1, 1), border=self.border_style)
+        return BoxShape(Rect(start.col, start.row, 1, 1),
+                        border=self.border_style, fill=self.fill)
 
     def on_mouse_down(self, col: int, row: int, canvas, *, pointer_x: float | None = None,
                       pointer_y: float | None = None) -> Shape | None:
@@ -92,8 +95,15 @@ class RectangleTool(DrawTool):
 
 
 class TextTool(DrawTool):
+    def __init__(self, border_style: BorderStyle = BorderStyle.NONE,
+                 fill: FillStyle = FillStyle.NONE) -> None:
+        super().__init__()
+        self.border_style = border_style
+        self.fill = fill
+
     def _create_shape(self, start: Point) -> Shape:
-        return BoxShape(Rect(start.col, start.row, 1, 1), border=BorderStyle.NONE)
+        return BoxShape(Rect(start.col, start.row, 1, 1),
+                        border=self.border_style, fill=self.fill)
 
 
 class LineTool(DrawTool):

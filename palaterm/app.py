@@ -7,6 +7,8 @@ import json
 import os
 import sys
 
+from typing import Any
+
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
@@ -16,11 +18,11 @@ from .commands import AddShape, AddShapes, CommandHistory, MoveLineEdge, MoveSha
 from .controllers import PanelController, ToolController
 from .serialization import load_canvas, save_canvas
 from .exporters import export_html, export_presenterm, export_svg
-from .models import BoxShape, CharSet, EndingStyle, HAlign, LineShape, LineStyle, VAlign
-from .tools import LineTool, RectangleTool, SelectMode, SelectTool, ToolType
+from .models import BoxShape, CharSet, EndingStyle, FillStyle, HAlign, LineShape, LineStyle, Shape, VAlign
+from .tools import LineTool, RectangleTool, SelectMode, SelectTool, TextTool, ToolType
 from .widgets import (
     AlignCell, BorderStylePanel, CanvasWidget, ColorPanel, ConfirmModal, EndingButton,
-    ExportPanel, FilePathModal, LayerPanel, LineEndingsPanel, LineStylePanel,
+    ExportPanel, FilePathModal, FillPanel, LayerPanel, LineEndingsPanel, LineStylePanel,
     SelectModePanel, ShapeAlignPanel, StatusBar, TextAlignPanel, ToolPicker,
 )
 
@@ -154,6 +156,7 @@ class PalatermApp(App):
             yield ToolPicker()
             yield SelectModePanel()
             yield BorderStylePanel()
+            yield FillPanel()
             yield LineStylePanel()
             yield LineEndingsPanel()
             yield TextAlignPanel()
@@ -208,13 +211,36 @@ class PalatermApp(App):
         self._tool_ctrl.border_style = event.style
         cw = self.canvas_widget
         tool = cw.tool
-        if isinstance(tool, (RectangleTool, LineTool)):
+        if isinstance(tool, (RectangleTool, TextTool, LineTool)):
             tool.border_style = event.style
         elif isinstance(tool, SelectTool):
-            for shape in tool.selected:
-                if hasattr(shape, "border"):
-                    shape.border = event.style
-            cw.refresh()
+            targets = [s for s in tool.selected if isinstance(s, (BoxShape, LineShape))]
+            if targets:
+                snapshots: list[tuple[Shape, dict[str, Any]]] = [
+                    (s, {"border": s.border}) for s in targets
+                ]
+                for s in targets:
+                    s.border = event.style
+                self.history.push(TransformShapes(snapshots))
+                cw.refresh()
+        self._update_panels()
+
+    def on_fill_panel_style_changed(self, event: FillPanel.StyleChanged) -> None:
+        self._tool_ctrl.fill = event.style
+        cw = self.canvas_widget
+        tool = cw.tool
+        if isinstance(tool, (RectangleTool, TextTool)):
+            tool.fill = event.style
+        elif isinstance(tool, SelectTool):
+            targets = [s for s in tool.selected if isinstance(s, BoxShape)]
+            if targets:
+                snapshots: list[tuple[Shape, dict[str, Any]]] = [
+                    (s, {"fill": s.fill}) for s in targets
+                ]
+                for s in targets:
+                    s.fill = event.style
+                self.history.push(TransformShapes(snapshots))
+                cw.refresh()
         self._update_panels()
 
     def on_line_style_panel_style_changed(self, event: LineStylePanel.StyleChanged) -> None:
@@ -224,12 +250,23 @@ class PalatermApp(App):
         if isinstance(tool, LineTool):
             tool.line_style = event.style
         elif isinstance(tool, SelectTool):
-            for shape in tool.selected:
-                if isinstance(shape, LineShape):
-                    shape.line_style = event.style
-                    # Switching style invalidates any edge-edited routing.
-                    shape.reset_edges_modified()
-            cw.refresh()
+            targets = [s for s in tool.selected if isinstance(s, LineShape)]
+            if targets:
+                # Switching style invalidates any edge-edited routing — snapshot
+                # the modified flag and joint list alongside line_style.
+                snapshots: list[tuple[Shape, dict[str, Any]]] = [
+                    (s, {
+                        "line_style": s.line_style,
+                        "_edges_modified": s._edges_modified,
+                        "_joint_points": list(s._joint_points),
+                    })
+                    for s in targets
+                ]
+                for s in targets:
+                    s.line_style = event.style
+                    s.reset_edges_modified()
+                self.history.push(TransformShapes(snapshots))
+                cw.refresh()
         self._update_panels()
 
     def on_ending_button_clicked(self, event: EndingButton.Clicked) -> None:
@@ -243,13 +280,16 @@ class PalatermApp(App):
             tool.start_ending = self._tool_ctrl.start_ending
             tool.end_ending = self._tool_ctrl.end_ending
         elif isinstance(tool, SelectTool):
-            for shape in tool.selected:
-                if isinstance(shape, LineShape):
-                    if event.endpoint == "start":
-                        shape.start_ending = event.ending
-                    else:
-                        shape.end_ending = event.ending
-            cw.refresh()
+            targets = [s for s in tool.selected if isinstance(s, LineShape)]
+            if targets:
+                attr = "start_ending" if event.endpoint == "start" else "end_ending"
+                snapshots: list[tuple[Shape, dict[str, Any]]] = [
+                    (s, {attr: getattr(s, attr)}) for s in targets
+                ]
+                for s in targets:
+                    setattr(s, attr, event.ending)
+                self.history.push(TransformShapes(snapshots))
+                cw.refresh()
         self._update_panels()
 
     def on_align_cell_clicked(self, event: AlignCell.Clicked) -> None:

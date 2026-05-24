@@ -231,6 +231,12 @@ def export_svg(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
     # Per-run emission would let the font's natural advance leave
     # sub-pixel gaps between adjacent box-drawing chars; per-cell
     # stretching defeats that.
+    #
+    # Limitation: ``FillStyle.SPACE`` (occlusion fill) renders a space
+    # character. SVG has no concept of "the canvas background", so we
+    # skip space cells and the box does NOT occlude underlying shapes
+    # in SVG output the way it does on-screen. Use ``LIGHT``/``MEDIUM``/
+    # ``FULL`` pattern fills if SVG occlusion matters.
     for (col, row), (ch, fg, _bg) in cells.items():
         if ch == " ":
             continue

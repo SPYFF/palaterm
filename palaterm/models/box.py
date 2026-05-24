@@ -25,6 +25,8 @@ class BoxShape(RectShape):
     def hit_test(self, col: int, row: int) -> bool:
         if self.border != BorderStyle.NONE:
             return self.bound.contains(col, row)
+        if self.fill != FillStyle.NONE:
+            return self.bound.contains(col, row)
         return self.bound.contains(col, row) and bool(self.text)
 
     def render(self, charset: CharSet = CharSet.UNICODE) -> dict[tuple[int, int], str]:
