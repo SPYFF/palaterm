@@ -12,11 +12,13 @@ from textual.strip import Strip
 from textual.widget import Widget
 
 from ..canvas import Canvas
-from ..geometry import Point, Rect
+from ..geometry import Rect
 from ..rendering import FrameRenderer
-from ..models import BoxShape, CharSet, LineShape
-from ..models.line import LineRouting
+from ..models import BoxShape, CharSet
 from ..tools import DrawTool, SelectTool, TextTool
+from ..tools.gestures import (
+    EdgeDragCommit, GestureCommit, MoveCommit, ResizeCommit,
+)
 from .modals import TextEditModal
 
 _ORIGIN_COL = 100
@@ -46,10 +48,9 @@ class CanvasWidget(Widget, can_focus=True):
             self.old_attrs = old_attrs
 
     class LineEdgeMoved(Message):
-        def __init__(self, line, before: LineRouting) -> None:
+        def __init__(self, commit: EdgeDragCommit) -> None:
             super().__init__()
-            self.line = line
-            self.before = before
+            self.commit = commit
 
     DEFAULT_CSS = """
     CanvasWidget {
@@ -72,9 +73,6 @@ class CanvasWidget(Widget, can_focus=True):
         self._renderer = FrameRenderer(self.canvas)
         self._last_click_time: float = 0
         self._last_click_pos: tuple[int, int] = (0, 0)
-        self._move_start: Point | None = None
-        self._resize_snapshot: tuple | None = None
-        self._edge_drag_snapshot: tuple[LineShape, LineRouting] | None = None
         self._update_virtual_size()
 
     def on_mount(self) -> None:
@@ -257,25 +255,17 @@ class CanvasWidget(Widget, can_focus=True):
 
         # Select tools paint several overlays at once.
         if isinstance(tool, SelectTool):
-            # The selection highlight + resize handles.
+            # The selection highlight + handles.
             bounds.extend(s.bound for s in tool.selected)
-            if tool._resize_shape is not None:
-                bounds.append(tool._resize_shape.bound)
-            # The live rectangle-select rubber band.
-            if tool.selection_rect is not None:
-                bounds.append(tool.selection_rect)
-            # Lines connected to a moving/resizing shape track its motion, so
-            # they redraw too even though they aren't selected.
-            tracked = {s.id for s in tool.selected}
-            if tool._resize_shape is not None:
-                tracked.add(tool._resize_shape.id)
-            bounds.extend(self._connected_line_bounds(tracked))
+            # Lines connected to selected shapes follow them, so they redraw
+            # too even when not selected themselves.
+            bounds.extend(self._connected_line_bounds({s.id for s in tool.selected}))
             # Snap-target highlight when dragging a line endpoint onto a box.
             if tool.snap_target is not None:
                 bounds.extend(self._snap_target_bounds(tool.snap_target))
-            # Edge-drag in flight: the line's bound shifts mid-drag.
-            if tool._edge_drag_line is not None:
-                bounds.append(tool._edge_drag_line.bound)
+            # Whatever the live gesture is currently painting (resize bounds,
+            # edge-drag line bounds, rubber band, …).
+            bounds.extend(tool.gesture_dirty_bounds(self.canvas))
             # Edge-hover highlight: the hovered line's bound covers it.
             if tool.hover_edge_line is not None:
                 bounds.append(tool.hover_edge_line.bound)
@@ -316,23 +306,12 @@ class CanvasWidget(Widget, can_focus=True):
         self._last_click_pos = (col, row)
         self.capture_mouse()
         self._mouse_down = True
-        self._move_start = Point(col, row)
         before = self._tool_dirty_bounds()
         if isinstance(self.tool, SelectTool):
             self.tool.on_mouse_down(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta,
                                     pointer_x=px, pointer_y=py)
         else:
             self.tool.on_mouse_down(col, row, self.canvas, pointer_x=px, pointer_y=py)
-        if isinstance(self.tool, SelectTool) and self.tool._resizing and self.tool._resize_shape:
-            shape = self.tool._resize_shape
-            if isinstance(shape, LineShape):
-                self._resize_snapshot = (shape, {"start": shape.start, "end": shape.end,
-                                                  "routing": shape.routing})
-            else:
-                self._resize_snapshot = (shape, {"rect": shape.rect})
-        if isinstance(self.tool, SelectTool) and self.tool._edge_drag_line is not None:
-            line = self.tool._edge_drag_line
-            self._edge_drag_snapshot = (line, line.routing)
         self._refresh_dirty_since(before)
 
     def on_mouse_move(self, event: MouseMove) -> None:
@@ -416,37 +395,27 @@ class CanvasWidget(Widget, can_focus=True):
         col, row = self._to_canvas_coords_f(event.pointer_x, event.pointer_y)
         px = event.pointer_x + self._scroll_col
         py = event.pointer_y + self._scroll_row
-        # Check if select tool was moving before on_mouse_up resets state
-        was_moving = (isinstance(self.tool, SelectTool) and
-                      self.tool._moving and self.tool.selected and self._move_start)
-        was_resizing = (isinstance(self.tool, SelectTool) and self.tool._resizing)
-        was_edge_dragging = (isinstance(self.tool, SelectTool)
-                             and self.tool._edge_drag_line is not None
-                             and self._edge_drag_snapshot is not None)
         before = self._tool_dirty_bounds()
         if isinstance(self.tool, SelectTool):
-            result = self.tool.on_mouse_up(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta,
+            commit = self.tool.on_mouse_up(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta,
                                            pointer_x=px, pointer_y=py)
+            self._post_gesture_commit(commit)
         else:
             result = self.tool.on_mouse_up(col, row, self.canvas, pointer_x=px, pointer_y=py)
-        if isinstance(self.tool, TextTool) and isinstance(result, BoxShape):
-            self.open_text_editor(result)
-        elif result and not isinstance(self.tool, SelectTool):
-            self.post_message(self.ShapeCreated(result))
-        elif was_moving:
-            dcol = col - self._move_start.col
-            drow = row - self._move_start.row
-            if dcol != 0 or drow != 0:
-                self.post_message(self.ShapeMoved(list(self.tool.selected), dcol, drow))
-        elif was_resizing and self._resize_snapshot:
-            shape, old_attrs = self._resize_snapshot
-            self.post_message(self.ShapeResized(shape, old_attrs))
-        elif was_edge_dragging and self._edge_drag_snapshot:
-            line, before_routing = self._edge_drag_snapshot
-            if line.routing != before_routing:
-                self.post_message(self.LineEdgeMoved(line, before_routing))
-        self._move_start = None
-        self._resize_snapshot = None
-        self._edge_drag_snapshot = None
+            if isinstance(self.tool, TextTool) and isinstance(result, BoxShape):
+                self.open_text_editor(result)
+            elif result is not None:
+                self.post_message(self.ShapeCreated(result))
         self._update_virtual_size()
         self._refresh_dirty_since(before)
+
+    def _post_gesture_commit(self, commit: GestureCommit | None) -> None:
+        if commit is None:
+            return
+        if isinstance(commit, MoveCommit):
+            if commit.dcol != 0 or commit.drow != 0:
+                self.post_message(self.ShapeMoved(commit.shapes, commit.dcol, commit.drow))
+        elif isinstance(commit, ResizeCommit):
+            self.post_message(self.ShapeResized(commit.shape, commit.old_attrs))
+        elif isinstance(commit, EdgeDragCommit):
+            self.post_message(self.LineEdgeMoved(commit))

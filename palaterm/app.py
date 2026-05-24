@@ -7,8 +7,6 @@ import json
 import os
 import sys
 
-from typing import Any
-
 from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Vertical
@@ -16,9 +14,10 @@ from textual.events import MouseUp
 
 from .commands import AddShape, AddShapes, CommandHistory, MoveLineEdge, MoveShapes, RemoveShapes, TransformShapes
 from .controllers import PanelController, ToolController
+from .style_application import apply_attribute_change
 from .serialization import load_canvas, save_canvas
 from .exporters import export_html, export_presenterm, export_svg
-from .models import BorderStyle, BoxShape, CharSet, EndingStyle, FillStyle, HAlign, LineShape, LineStyle, Shape, VAlign
+from .models import BorderStyle, BoxShape, CharSet, EndingStyle, FillStyle, HAlign, LineShape, LineStyle, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, TextTool, ToolType
 from .widgets import (
     AlignCell, BorderStylePanel, CanvasWidget, ColorPanel, ConfirmModal, EndingButton,
@@ -195,7 +194,7 @@ class PalatermApp(App):
         self.history.push(cmd)
 
     def on_canvas_widget_line_edge_moved(self, event: CanvasWidget.LineEdgeMoved) -> None:
-        cmd = MoveLineEdge(event.line, event.before)
+        cmd = MoveLineEdge(event.commit.line, event.commit.before)
         self.history.push(cmd)
 
     def on_tool_picker_tool_selected(self, event: ToolPicker.ToolSelected) -> None:
@@ -218,17 +217,12 @@ class PalatermApp(App):
         elif isinstance(tool, (RectangleTool, TextTool)):
             tool.border_style = event.style
         elif isinstance(tool, SelectTool):
+            # NONE only makes sense on boxes — lines can't render without a border.
             targets = [
                 s for s in tool.selected
                 if isinstance(s, BoxShape) or (isinstance(s, LineShape) and not none_style)
             ]
-            if targets:
-                snapshots: list[tuple[Shape, dict[str, Any]]] = [
-                    (s, {"border": s.border}) for s in targets
-                ]
-                for s in targets:
-                    s.border = event.style
-                self.history.push(TransformShapes(snapshots))
+            if apply_attribute_change(self.history, targets, "border", event.style):
                 cw.refresh()
         self._update_panels()
 
@@ -240,13 +234,7 @@ class PalatermApp(App):
             tool.fill = event.style
         elif isinstance(tool, SelectTool):
             targets = [s for s in tool.selected if isinstance(s, BoxShape)]
-            if targets:
-                snapshots: list[tuple[Shape, dict[str, Any]]] = [
-                    (s, {"fill": s.fill}) for s in targets
-                ]
-                for s in targets:
-                    s.fill = event.style
-                self.history.push(TransformShapes(snapshots))
+            if apply_attribute_change(self.history, targets, "fill", event.style):
                 cw.refresh()
         self._update_panels()
 
@@ -258,17 +246,14 @@ class PalatermApp(App):
             tool.line_style = event.style
         elif isinstance(tool, SelectTool):
             targets = [s for s in tool.selected if isinstance(s, LineShape)]
-            if targets:
-                # Switching style invalidates any edge-edited routing — snapshot
-                # routing alongside line_style so undo restores both atomically.
-                snapshots: list[tuple[Shape, dict[str, Any]]] = [
-                    (s, {"line_style": s.line_style, "routing": s.routing})
-                    for s in targets
-                ]
-                for s in targets:
-                    s.line_style = event.style
-                    s.clear_custom_routing()
-                self.history.push(TransformShapes(snapshots))
+            # Switching style invalidates any edge-edited routing — snapshot
+            # routing alongside line_style so undo restores both atomically.
+            applied = apply_attribute_change(
+                self.history, targets, "line_style", event.style,
+                extra_snapshot_attrs=("routing",),
+                after_set=lambda s: s.clear_custom_routing() if isinstance(s, LineShape) else None,
+            )
+            if applied:
                 cw.refresh()
         self._update_panels()
 
@@ -284,14 +269,8 @@ class PalatermApp(App):
             tool.end_ending = self._tool_ctrl.end_ending
         elif isinstance(tool, SelectTool):
             targets = [s for s in tool.selected if isinstance(s, LineShape)]
-            if targets:
-                attr = "start_ending" if event.endpoint == "start" else "end_ending"
-                snapshots: list[tuple[Shape, dict[str, Any]]] = [
-                    (s, {attr: getattr(s, attr)}) for s in targets
-                ]
-                for s in targets:
-                    setattr(s, attr, event.ending)
-                self.history.push(TransformShapes(snapshots))
+            attr = "start_ending" if event.endpoint == "start" else "end_ending"
+            if apply_attribute_change(self.history, targets, attr, event.ending):
                 cw.refresh()
         self._update_panels()
 
@@ -346,11 +325,8 @@ class PalatermApp(App):
         tool = cw.tool
         if not isinstance(tool, SelectTool) or not tool.selected:
             return
-        old = [(s, {"fg": s.fg}) for s in tool.selected]
-        for s in tool.selected:
-            s.fg = event.color
-        self.history.push(TransformShapes(old))
-        cw.refresh()
+        if apply_attribute_change(self.history, tool.selected, "fg", event.color):
+            cw.refresh()
         self._update_panels()
 
     def on_layer_panel_layer_action(self, event: LayerPanel.LayerAction) -> None:
