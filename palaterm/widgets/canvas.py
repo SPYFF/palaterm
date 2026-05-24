@@ -307,13 +307,15 @@ class CanvasWidget(Widget, can_focus=True):
             old_edge_line = self.tool.hover_edge_line
             old_edge_index = self.tool.hover_edge_index
             old_edge_whole = self.tool.hover_edge_whole
-            self.tool.update_hover(col, row)
+            px = event.pointer_x + self._scroll_col
+            py = event.pointer_y + self._scroll_row
+            self.tool.hover_shape = new
+            self.tool.update_hover(col, row, pointer_x=px, pointer_y=py)
             self._update_pointer_for_hover()
             edge_changed = (old_edge_line is not self.tool.hover_edge_line
                             or old_edge_index != self.tool.hover_edge_index
                             or old_edge_whole != self.tool.hover_edge_whole)
             if new != old or edge_changed:
-                self.tool.hover_shape = new
                 dirty = [s.bound for s in (old, new) if s is not None]
                 if old_edge_line is not None:
                     dirty.append(old_edge_line.bound)
@@ -326,10 +328,28 @@ class CanvasWidget(Widget, can_focus=True):
                     self.refresh_rect(rect)
 
     def _update_pointer_for_hover(self) -> None:
+        from ..tools import Handle
+
         if not isinstance(self.tool, SelectTool):
             self.styles.pointer = "default"
             return
-        if self.tool.hover_edge_whole:
+
+        h = self.tool.hover_handle
+        if h is not None:
+            _HANDLE_CURSORS = {
+                Handle.TOP_LEFT: "nwse-resize",
+                Handle.BOT_RIGHT: "nwse-resize",
+                Handle.TOP_RIGHT: "nesw-resize",
+                Handle.BOT_LEFT: "nesw-resize",
+                Handle.TOP_MID: "ns-resize",
+                Handle.BOT_MID: "ns-resize",
+                Handle.MID_LEFT: "ew-resize",
+                Handle.MID_RIGHT: "ew-resize",
+                Handle.LINE_START: "move",
+                Handle.LINE_END: "move",
+            }
+            self.styles.pointer = _HANDLE_CURSORS.get(h, "default")
+        elif self.tool.hover_edge_whole:
             self.styles.pointer = "move"
         elif self.tool.hover_edge_line is not None and self.tool.hover_edge_index is not None:
             line = self.tool.hover_edge_line
@@ -338,6 +358,8 @@ class CanvasWidget(Widget, can_focus=True):
                 self.styles.pointer = "ns-resize"
             else:
                 self.styles.pointer = "ew-resize"
+        elif self.tool.hover_shape and self.tool.hover_shape in self.tool.selected:
+            self.styles.pointer = "move"
         else:
             self.styles.pointer = "default"
 

@@ -42,6 +42,7 @@ class SelectTool:
         self.hover_edge_line: LineShape | None = None
         self.hover_edge_index: int | None = None
         self.hover_edge_whole: bool = False  # corner hover → highlight whole line
+        self.hover_handle = None  # Handle enum value when hovering a handle
 
     def on_mouse_down(self, col: int, row: int, canvas, *, ctrl: bool = False, alt: bool = False,
                       pointer_x: float | None = None, pointer_y: float | None = None) -> Shape | None:
@@ -103,17 +104,26 @@ class SelectTool:
             self.selection_rect_f = None
         return self.selected[0] if self.selected else None
 
-    def update_hover(self, col: int, row: int) -> tuple[LineShape | None, int | None, bool]:
+    def update_hover(self, col: int, row: int,
+                     pointer_x: float | None = None,
+                     pointer_y: float | None = None) -> tuple[LineShape | None, int | None, bool]:
         """Recompute edge-hover state for selected lines.
 
         Returns (line, edge_index, whole_line) tuple matching the new state.
         ``edge_index`` is set when an edge interior is hovered; ``whole_line``
         is True when a corner joint is hovered (whole-line move target).
         """
+        from . import handle_at
+
         new_line: LineShape | None = None
         new_index: int | None = None
         new_whole = False
+        new_handle = None
         for shape in self.selected:
+            h = handle_at(shape, col, row, pointer_x, pointer_y)
+            if h is not None:
+                new_handle = h
+                break
             if not isinstance(shape, LineShape):
                 continue
             edge_idx = shape.edge_at(col, row)
@@ -126,6 +136,7 @@ class SelectTool:
                 new_line = shape
                 new_whole = True
                 break
+        self.hover_handle = new_handle
         self.hover_edge_line = new_line
         self.hover_edge_index = new_index
         self.hover_edge_whole = new_whole
