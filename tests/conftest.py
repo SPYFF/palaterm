@@ -7,7 +7,6 @@ Anything more complex than a one-line wrapper around
 from __future__ import annotations
 
 import pytest
-
 from palaterm.canvas import Canvas
 
 from .fixtures import build_fixed_canvas

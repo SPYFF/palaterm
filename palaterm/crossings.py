@@ -48,7 +48,6 @@ CHAR_TO_MASK: dict[str, int] = {
     "╮": _SL | _SB,
     "╰": _SR | _ST,
     "╯": _SL | _ST,
-
     # === Heavy/Bold ===
     "━": _HH,
     "┃": _HV,
@@ -61,7 +60,6 @@ CHAR_TO_MASK: dict[str, int] = {
     "┳": _HH | _HB,
     "┻": _HH | _HT,
     "╋": _HH | _HV,
-
     # === Double ===
     "═": _DH,
     "║": _DV,
@@ -74,13 +72,11 @@ CHAR_TO_MASK: dict[str, int] = {
     "╦": _DH | _DB,
     "╩": _DH | _DT,
     "╬": _DH | _DV,
-
     # === Mixed: Single + Heavy ===
     "╼": _SL | _HR,
     "╾": _HL | _SR,
     "╽": _ST | _HB,
     "╿": _HT | _SB,
-
     # Half-line characters (single direction)
     "╴": _SL,
     "╶": _SR,
@@ -90,7 +86,6 @@ CHAR_TO_MASK: dict[str, int] = {
     "╺": _HR,
     "╹": _HT,
     "╻": _HB,
-
     "┍": _HR | _SB,
     "┎": _SR | _HB,
     "┑": _HL | _SB,
@@ -99,35 +94,30 @@ CHAR_TO_MASK: dict[str, int] = {
     "┖": _SR | _HT,
     "┙": _HL | _ST,
     "┚": _SL | _HT,
-
     "┝": _HR | _SV,
     "┠": _SR | _HV,
     "┞": _SR | _HT | _SB,
     "┟": _SR | _ST | _HB,
     "┡": _HR | _HT | _SB,
     "┢": _HR | _ST | _HB,
-
     "┥": _HL | _SV,
     "┨": _SL | _HV,
     "┦": _SL | _HT | _SB,
     "┧": _SL | _ST | _HB,
     "┩": _HL | _HT | _SB,
     "┪": _HL | _ST | _HB,
-
     "┭": _HL | _SR | _SB,
     "┮": _SL | _HR | _SB,
     "┯": _HH | _SB,
     "┰": _SH | _HB,
     "┱": _HL | _SR | _HB,
     "┲": _SL | _HR | _HB,
-
     "┵": _HL | _SR | _ST,
     "┶": _SL | _HR | _ST,
     "┷": _HH | _ST,
     "┸": _SH | _HT,
     "┹": _HL | _SR | _HT,
     "┺": _SL | _HR | _HT,
-
     "┽": _HL | _SR | _SV,
     "┾": _SL | _HR | _SV,
     "┿": _HH | _SV,
@@ -142,7 +132,6 @@ CHAR_TO_MASK: dict[str, int] = {
     "╈": _HH | _ST | _HB,
     "╉": _HL | _SR | _HV,
     "╊": _SL | _HR | _HV,
-
     # === Mixed: Single + Double ===
     "╒": _DR | _SB,
     "╓": _SR | _DB,
@@ -152,17 +141,14 @@ CHAR_TO_MASK: dict[str, int] = {
     "╙": _SR | _DT,
     "╛": _DL | _ST,
     "╜": _SL | _DT,
-
     "╞": _DR | _SV,
     "╟": _SR | _DV,
     "╡": _DL | _SV,
     "╢": _SL | _DV,
-
     "╤": _DH | _SB,
     "╥": _SH | _DB,
     "╧": _DH | _ST,
     "╨": _SH | _DT,
-
     "╪": _DH | _SV,
     "╫": _SH | _DV,
 }

@@ -1,9 +1,10 @@
 """Canvas model: manages shapes and composites them into a character grid."""
 
 from __future__ import annotations
+
 from .connectors import ConnectorManager
 from .crossings import is_connectable, resolve_crossing
-from .geometry import Point, Rect
+from .geometry import Rect
 from .models import CharSet, Shape, to_ascii
 
 
@@ -29,15 +30,23 @@ class Canvas:
 
     def shapes_fully_in(self, region: Rect) -> list[Shape]:
         """Return shapes whose bounds are entirely within region."""
-        return [s for s in self.shapes if
-                region.contains(s.bound.left, s.bound.top) and
-                region.contains(s.bound.right, s.bound.bottom)]
+        return [
+            s
+            for s in self.shapes
+            if region.contains(s.bound.left, s.bound.top)
+            and region.contains(s.bound.right, s.bound.bottom)
+        ]
 
     def shapes_partially_in(self, region: Rect) -> list[Shape]:
         """Return shapes whose bounds overlap with region."""
-        return [s for s in self.shapes if
-                s.bound.left <= region.right and s.bound.right >= region.left and
-                s.bound.top <= region.bottom and s.bound.bottom >= region.top]
+        return [
+            s
+            for s in self.shapes
+            if s.bound.left <= region.right
+            and s.bound.right >= region.left
+            and s.bound.top <= region.bottom
+            and s.bound.bottom >= region.top
+        ]
 
     def bring_to_front(self, shape: Shape) -> None:
         self.shapes.remove(shape)
@@ -57,19 +66,29 @@ class Canvas:
         if i > 0:
             self.shapes[i], self.shapes[i - 1] = self.shapes[i - 1], self.shapes[i]
 
-    def render_region(self, viewport: Rect, charset: CharSet = CharSet.UNICODE) -> dict[tuple[int, int], str]:
+    def render_region(
+        self, viewport: Rect, charset: CharSet = CharSet.UNICODE
+    ) -> dict[tuple[int, int], str]:
         """Composite all shapes within the viewport into a character dict."""
         cells: dict[tuple[int, int], str] = {}
         v_left, v_top, v_right, v_bottom = (
-            viewport.left, viewport.top, viewport.right, viewport.bottom)
+            viewport.left,
+            viewport.top,
+            viewport.right,
+            viewport.bottom,
+        )
         for shape in self.shapes:
             # Skip shapes whose bounding box doesn't intersect the viewport.
             # `shape.render()` is expensive (it materializes every cell), so
             # an AABB cull on the bound is much cheaper than rendering then
             # filtering per-cell.
             b = shape.bound
-            if (b.right < v_left or b.left > v_right
-                    or b.bottom < v_top or b.top > v_bottom):
+            if (
+                b.right < v_left
+                or b.left > v_right
+                or b.bottom < v_top
+                or b.top > v_bottom
+            ):
                 continue
             for (col, row), ch in shape.render(charset).items():
                 if v_left <= col <= v_right and v_top <= row <= v_bottom:
@@ -82,8 +101,9 @@ class Canvas:
             cells = {pos: to_ascii(ch) for pos, ch in cells.items()}
         return cells
 
-    def export_to_text(self, shapes: list[Shape] | None = None,
-                       charset: CharSet = CharSet.UNICODE) -> str:
+    def export_to_text(
+        self, shapes: list[Shape] | None = None, charset: CharSet = CharSet.UNICODE
+    ) -> str:
         """Render shapes to a multi-line string. Uses all shapes if none specified."""
         targets = shapes if shapes else self.shapes
         if not targets:
@@ -101,13 +121,15 @@ class Canvas:
         max_row = max(r for c, r in cells)
         lines = []
         for row in range(min_row, max_row + 1):
-            line = "".join(cells.get((col, row), " ") for col in range(min_col, max_col + 1))
+            line = "".join(
+                cells.get((col, row), " ") for col in range(min_col, max_col + 1)
+            )
             lines.append(line.rstrip())
         return "\n".join(lines)
 
-    def render_styled(self, shapes: list[Shape] | None = None,
-                      charset: CharSet = CharSet.UNICODE
-                      ) -> tuple[Rect, dict[tuple[int, int], tuple[str, str | None, str | None]]]:
+    def render_styled(
+        self, shapes: list[Shape] | None = None, charset: CharSet = CharSet.UNICODE
+    ) -> tuple[Rect, dict[tuple[int, int], tuple[str, str | None, str | None]]]:
         """Composite shapes into a per-cell ``(char, fg, bg)`` grid.
 
         Returns ``(bounding_rect, cells)``. Mirrors :meth:`export_to_text`'s

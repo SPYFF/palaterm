@@ -9,10 +9,9 @@ from textual.strip import Strip
 from .canvas import Canvas
 from .connectors import Side
 from .geometry import Rect
-from .models import CharSet, Shape, braille_rect, braille_rect_precise
+from .models import CharSet, braille_rect, braille_rect_precise
 from .tools import DrawTool, SelectTool, get_handles
 from .tools.overlays import EdgeHover, SnapHighlight
-
 
 # Foreground-only style fragments. They are merged with the canvas widget's
 # resolved style each frame so highlights inherit the theme background; emitting
@@ -40,8 +39,13 @@ class FrameRenderer:
     def invalidate(self) -> None:
         self._cache = None
 
-    def _ensure_cache(self, viewport: Rect, tool: DrawTool | SelectTool | None, base_style: RichStyle,
-                      charset: CharSet) -> tuple:
+    def _ensure_cache(
+        self,
+        viewport: Rect,
+        tool: DrawTool | SelectTool | None,
+        base_style: RichStyle,
+        charset: CharSet,
+    ) -> tuple:
         if self._cache is not None:
             return self._cache
 
@@ -89,12 +93,30 @@ class FrameRenderer:
                 lf, tf, rf, bf = tool.selection_rect_f
                 sel_braille = braille_rect_precise(lf, tf, rf, bf, charset)
             else:
-                sel_braille = braille_rect(sel_rect.left, sel_rect.top, sel_rect.right, sel_rect.bottom, charset)
+                sel_braille = braille_rect(
+                    sel_rect.left,
+                    sel_rect.top,
+                    sel_rect.right,
+                    sel_rect.bottom,
+                    charset,
+                )
 
-        self._cache = (cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells, cell_styles, edge_hover_cells)
+        self._cache = (
+            cells,
+            highlight_cells,
+            handle_cells,
+            sel_rect,
+            sel_braille,
+            base_style,
+            snap_edge_cells,
+            cell_styles,
+            edge_hover_cells,
+        )
         return self._cache
 
-    def _edge_hover_cells(self, overlay: EdgeHover, charset: CharSet) -> set[tuple[int, int]]:
+    def _edge_hover_cells(
+        self, overlay: EdgeHover, charset: CharSet
+    ) -> set[tuple[int, int]]:
         line = overlay.line
         if overlay.whole:
             return set(line.render(charset).keys())
@@ -116,7 +138,9 @@ class FrameRenderer:
 
     def _snap_edge_cells(self, overlay: SnapHighlight) -> set[tuple[int, int]]:
         """Cells along the target shape's snapped edge."""
-        target = next((s for s in self.canvas.shapes if s.id == overlay.target_id), None)
+        target = next(
+            (s for s in self.canvas.shapes if s.id == overlay.target_id), None
+        )
         if not target:
             return set()
         b = target.bound
@@ -136,11 +160,25 @@ class FrameRenderer:
                     cells.add((col, b.bottom))
         return cells
 
-    def render_line(self, y: int, viewport: Rect, tool: DrawTool | SelectTool | None, base_style: RichStyle,
-                    charset: CharSet = CharSet.UNICODE) -> Strip:
-        cells, highlight_cells, handle_cells, sel_rect, sel_braille, base_style, snap_edge_cells, cell_styles, edge_hover_cells = self._ensure_cache(
-            viewport, tool, base_style, charset
-        )
+    def render_line(
+        self,
+        y: int,
+        viewport: Rect,
+        tool: DrawTool | SelectTool | None,
+        base_style: RichStyle,
+        charset: CharSet = CharSet.UNICODE,
+    ) -> Strip:
+        (
+            cells,
+            highlight_cells,
+            handle_cells,
+            sel_rect,
+            sel_braille,
+            base_style,
+            snap_edge_cells,
+            cell_styles,
+            edge_hover_cells,
+        ) = self._ensure_cache(viewport, tool, base_style, charset)
         row = y + viewport.top
         width = viewport.width
         scroll_col = viewport.left
@@ -175,7 +213,13 @@ class FrameRenderer:
             ch = cells.get(pos, " ")
 
             if sel_drag_start and pos == sel_drag_start and (sel_braille or sel_rect):
-                sign = "+" if sel_modifier == "add" else "−" if sel_modifier == "remove" else ""
+                sign = (
+                    "+"
+                    if sel_modifier == "add"
+                    else "−"
+                    if sel_modifier == "remove"
+                    else ""
+                )
                 if sign:
                     segments.append(Segment(sign, sel_style))
                     continue

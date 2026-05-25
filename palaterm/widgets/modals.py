@@ -96,6 +96,7 @@ class FilePathModal(ModalScreen[str | None]):
 
     def compose(self) -> ComposeResult:
         from textual.widgets import Input
+
         with Vertical():
             yield Label(self._prompt, id="prompt_label")
             yield Input(self._initial, id="path_input")
@@ -103,6 +104,7 @@ class FilePathModal(ModalScreen[str | None]):
 
     def on_mount(self) -> None:
         from textual.widgets import Input
+
         self.query_one("#path_input", Input).focus()
 
     def on_input_submitted(self, event) -> None:

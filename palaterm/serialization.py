@@ -58,39 +58,51 @@ from .canvas import Canvas
 from .connectors import Anchor, Connector, Side
 from .geometry import Point, Rect
 from .models import (
-    BorderStyle, BoxShape, CharSet, EndingStyle, FillStyle, HAlign, VAlign, LineStyle,
+    BorderStyle,
+    BoxShape,
+    CharSet,
+    EndingStyle,
+    FillStyle,
+    HAlign,
     LineShape,
+    LineStyle,
+    VAlign,
 )
 from .models.line import LineRouting
-
 
 # --- key cipher ------------------------------------------------------------
 
 _LONG_TO_SHORT: dict[str, str] = {
     # common
-    "type": "t", "id": "id", "fg": "fg", "bg": "bg",
+    "type": "t",
+    "id": "id",
+    "fg": "fg",
+    "bg": "bg",
     # box geometry (single tuple) and style
-    "rect":   "g",   # [left, top, width, height]
+    "rect": "g",  # [left, top, width, height]
     "border": "b",
-    "fill":   "fl",
-    "text":   "tx",
+    "fill": "fl",
+    "text": "tx",
     "halign": "ha",
     "valign": "va",
     "rect_f": "rf",
     # line endpoints (single tuple) and style
-    "endpoints":    "e",   # [start_col, start_row, end_col, end_row]
-    "line_style":   "ls",
-    "start_ending": "se",  "end_ending": "ee",
-    "start_side":   "ss",  "end_side":   "es",
-    "start_sub":    "sb",  "end_sub":    "eb",
-    "joints":         "j",
+    "endpoints": "e",  # [start_col, start_row, end_col, end_row]
+    "line_style": "ls",
+    "start_ending": "se",
+    "end_ending": "ee",
+    "start_side": "ss",
+    "end_side": "es",
+    "start_sub": "sb",
+    "end_sub": "eb",
+    "joints": "j",
     "edges_modified": "em",
     # connector
-    "line_id":   "lid",
-    "anchor":    "a",
+    "line_id": "lid",
+    "anchor": "a",
     "target_id": "tid",
-    "side":      "s",
-    "ratio":     "r",
+    "side": "s",
+    "ratio": "r",
 }
 
 _SHORT_TO_LONG: dict[str, str] = {v: k for k, v in _LONG_TO_SHORT.items()}
@@ -111,37 +123,47 @@ def _lengthen_keys(d: dict) -> dict:
 
 _VALUE_CIPHERS: dict[str, dict[Enum, str]] = {
     "border": {
-        BorderStyle.NONE: "N", BorderStyle.HEAVY: "H",
-        BorderStyle.DOUBLE: "D", BorderStyle.ROUNDED: "R",
+        BorderStyle.NONE: "N",
+        BorderStyle.HEAVY: "H",
+        BorderStyle.DOUBLE: "D",
+        BorderStyle.ROUNDED: "R",
         BorderStyle.BRAILLE: "B",
         # BorderStyle.LIGHT is the default; never appears on disk.
     },
     "fill": {
-        FillStyle.SPACE: "_", FillStyle.FULL: "F",
-        FillStyle.MEDIUM: "M", FillStyle.LIGHT: "L",
+        FillStyle.SPACE: "_",
+        FillStyle.FULL: "F",
+        FillStyle.MEDIUM: "M",
+        FillStyle.LIGHT: "L",
         # FillStyle.NONE is the default.
     },
     "halign": {HAlign.CENTER: "c", HAlign.RIGHT: "r"},
     "valign": {VAlign.MIDDLE: "m", VAlign.BOTTOM: "b"},
     "line_style": {LineStyle.STRAIGHT: "s"},
     "start_ending": {
-        EndingStyle.ARROW: "a", EndingStyle.SQUARE: "s",
-        EndingStyle.CIRCLE: "c", EndingStyle.STAR: "*",
+        EndingStyle.ARROW: "a",
+        EndingStyle.SQUARE: "s",
+        EndingStyle.CIRCLE: "c",
+        EndingStyle.STAR: "*",
     },
     "end_ending": {
-        EndingStyle.ARROW: "a", EndingStyle.SQUARE: "s",
-        EndingStyle.CIRCLE: "c", EndingStyle.STAR: "*",
+        EndingStyle.ARROW: "a",
+        EndingStyle.SQUARE: "s",
+        EndingStyle.CIRCLE: "c",
+        EndingStyle.STAR: "*",
     },
     "anchor": {Anchor.START: "s", Anchor.END: "e"},
     "side": {
-        Side.LEFT: "l", Side.RIGHT: "r",
-        Side.TOP: "t", Side.BOTTOM: "b",
+        Side.LEFT: "l",
+        Side.RIGHT: "r",
+        Side.TOP: "t",
+        Side.BOTTOM: "b",
     },
     # start_side / end_side are stored on LineShape as already-lowercased
     # strings ("left"/"right"/"top"/"bottom"), not Side enum members. They
     # get a separate cipher keyed on the string value.
     "start_side": {"left": "l", "right": "r", "top": "t", "bottom": "b"},  # type: ignore[dict-item]
-    "end_side":   {"left": "l", "right": "r", "top": "t", "bottom": "b"},  # type: ignore[dict-item]
+    "end_side": {"left": "l", "right": "r", "top": "t", "bottom": "b"},  # type: ignore[dict-item]
 }
 
 _VALUE_CIPHERS_INV: dict[str, dict[str, object]] = {
@@ -179,17 +201,17 @@ def _decode_values(d: dict) -> dict:
 
 _BOX_DEFAULTS: dict[str, object] = {
     "border": BorderStyle.LIGHT,
-    "fill":   FillStyle.NONE,
-    "text":   "",
+    "fill": FillStyle.NONE,
+    "text": "",
     "halign": HAlign.LEFT,
     "valign": VAlign.TOP,
 }
 
 _LINE_DEFAULTS: dict[str, object] = {
-    "border":       BorderStyle.LIGHT,
-    "line_style":   LineStyle.ORTHOGONAL,
+    "border": BorderStyle.LIGHT,
+    "line_style": LineStyle.ORTHOGONAL,
     "start_ending": EndingStyle.NONE,
-    "end_ending":   EndingStyle.NONE,
+    "end_ending": EndingStyle.NONE,
 }
 
 _CONNECTOR_DEFAULTS: dict[str, object] = {}
@@ -303,7 +325,8 @@ def _deserialize_box(d: dict) -> BoxShape:
 def _deserialize_line(d: dict) -> LineShape:
     sc, sr, ec, er = d["endpoints"]
     s = LineShape(
-        Point(sc, sr), Point(ec, er),
+        Point(sc, sr),
+        Point(ec, er),
         border=d.get("border", BorderStyle.LIGHT),
         line_style=d.get("line_style", LineStyle.ORTHOGONAL),
         start_ending=d.get("start_ending", EndingStyle.NONE),
@@ -374,8 +397,10 @@ def save_canvas(canvas: Canvas, path: Path, charset: CharSet = CharSet.UNICODE) 
         serializer = _SERIALIZERS.get(type(shape))
         if serializer:
             shapes.append(_shorten_keys(_encode_values(serializer(shape))))
-    connectors = [_shorten_keys(_encode_values(_serialize_connector(c)))
-                  for c in canvas.connector_mgr.connectors]
+    connectors = [
+        _shorten_keys(_encode_values(_serialize_connector(c)))
+        for c in canvas.connector_mgr.connectors
+    ]
 
     parts = [
         "{",
@@ -401,6 +426,8 @@ def load_canvas(path: Path) -> tuple[Canvas, CharSet]:
         if deserializer:
             canvas.add_shape(deserializer(d))
     for short in data.get("connectors", []):
-        canvas.connector_mgr.add(_deserialize_connector(_decode_values(_lengthen_keys(short))))
+        canvas.connector_mgr.add(
+            _deserialize_connector(_decode_values(_lengthen_keys(short)))
+        )
     charset = CharSet[data.get("charset", "unicode").upper()]
     return canvas, charset

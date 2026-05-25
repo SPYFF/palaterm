@@ -10,13 +10,19 @@ import json
 from pathlib import Path
 
 import pytest
-
 from palaterm.canvas import Canvas
 from palaterm.connectors import Anchor, Connector, Side
 from palaterm.geometry import Point, Rect
 from palaterm.models import (
-    BorderStyle, BoxShape, CharSet, EndingStyle, FillStyle, HAlign, LineShape,
-    LineStyle, VAlign,
+    BorderStyle,
+    BoxShape,
+    CharSet,
+    EndingStyle,
+    FillStyle,
+    HAlign,
+    LineShape,
+    LineStyle,
+    VAlign,
 )
 from palaterm.serialization import load_canvas, save_canvas
 
@@ -45,10 +51,14 @@ def test_round_trip_preserves_shape_count(fixed_canvas: Canvas, tmp_path: Path) 
     save_canvas(fixed_canvas, a, CharSet.UNICODE)
     loaded, _ = load_canvas(a)
     assert len(loaded.shapes) == len(fixed_canvas.shapes)
-    assert len(loaded.connector_mgr.connectors) == len(fixed_canvas.connector_mgr.connectors)
+    assert len(loaded.connector_mgr.connectors) == len(
+        fixed_canvas.connector_mgr.connectors
+    )
 
 
-def test_round_trip_preserves_box_attributes(fixed_canvas: Canvas, tmp_path: Path) -> None:
+def test_round_trip_preserves_box_attributes(
+    fixed_canvas: Canvas, tmp_path: Path
+) -> None:
     a = tmp_path / "a.palaterm"
     save_canvas(fixed_canvas, a, CharSet.UNICODE)
     loaded, _ = load_canvas(a)
@@ -75,11 +85,13 @@ def test_round_trip_preserves_box_attributes(fixed_canvas: Canvas, tmp_path: Pat
             assert load.rect_f is None, sid
         else:
             assert load.rect_f is not None, sid
-            for o, l in zip(orig.rect_f, load.rect_f):
-                assert l == pytest.approx(round(o, 4), abs=1e-9), sid
+            for o, ld in zip(orig.rect_f, load.rect_f):
+                assert ld == pytest.approx(round(o, 4), abs=1e-9), sid
 
 
-def test_round_trip_preserves_line_attributes(fixed_canvas: Canvas, tmp_path: Path) -> None:
+def test_round_trip_preserves_line_attributes(
+    fixed_canvas: Canvas, tmp_path: Path
+) -> None:
     a = tmp_path / "a.palaterm"
     save_canvas(fixed_canvas, a, CharSet.UNICODE)
     loaded, _ = load_canvas(a)
@@ -141,8 +153,8 @@ def test_short_keys_in_output(fixed_canvas: Canvas, tmp_path: Path) -> None:
     # Common short keys must appear.
     assert '"t":"box"' in text
     assert '"id":"s00"' in text
-    assert '"g":[' in text         # box geometry tuple
-    assert '"e":[' in text         # line endpoints tuple
+    assert '"g":[' in text  # box geometry tuple
+    assert '"e":[' in text  # line endpoints tuple
     # Long keys must NOT appear.
     assert '"type":' not in text
     assert '"left":' not in text
@@ -181,7 +193,9 @@ def test_box_round_trip_every_fill(fill: FillStyle, tmp_path: Path) -> None:
 @pytest.mark.parametrize("halign", list(HAlign))
 @pytest.mark.parametrize("valign", list(VAlign))
 def test_box_round_trip_every_alignment(
-    halign: HAlign, valign: VAlign, tmp_path: Path,
+    halign: HAlign,
+    valign: VAlign,
+    tmp_path: Path,
 ) -> None:
     c = Canvas()
     box = BoxShape(Rect(0, 0, 6, 4), text="x", halign=halign, valign=valign)
@@ -197,7 +211,9 @@ def test_box_round_trip_every_alignment(
 
 
 @pytest.mark.parametrize("line_style", list(LineStyle))
-def test_line_round_trip_every_line_style(line_style: LineStyle, tmp_path: Path) -> None:
+def test_line_round_trip_every_line_style(
+    line_style: LineStyle, tmp_path: Path
+) -> None:
     c = Canvas()
     line = LineShape(Point(0, 0), Point(5, 5), line_style=line_style)
     line.id = "l0"
@@ -213,8 +229,7 @@ def test_line_round_trip_every_line_style(line_style: LineStyle, tmp_path: Path)
 @pytest.mark.parametrize("ending", list(EndingStyle))
 def test_line_round_trip_every_ending(ending: EndingStyle, tmp_path: Path) -> None:
     c = Canvas()
-    line = LineShape(Point(0, 0), Point(5, 5),
-                     start_ending=ending, end_ending=ending)
+    line = LineShape(Point(0, 0), Point(5, 5), start_ending=ending, end_ending=ending)
     line.id = "l0"
     c.add_shape(line)
     a = tmp_path / "x.palaterm"
@@ -229,7 +244,9 @@ def test_line_round_trip_every_ending(ending: EndingStyle, tmp_path: Path) -> No
 @pytest.mark.parametrize("anchor", list(Anchor))
 @pytest.mark.parametrize("side", list(Side))
 def test_connector_round_trip_every_enum(
-    anchor: Anchor, side: Side, tmp_path: Path,
+    anchor: Anchor,
+    side: Side,
+    tmp_path: Path,
 ) -> None:
     c = Canvas()
     box = BoxShape(Rect(0, 0, 4, 3))
@@ -238,8 +255,9 @@ def test_connector_round_trip_every_enum(
     line.id = "l0"
     c.add_shape(box)
     c.add_shape(line)
-    c.connector_mgr.add(Connector(line_id="l0", anchor=anchor, target_id="b0",
-                                   side=side, ratio=0.5))
+    c.connector_mgr.add(
+        Connector(line_id="l0", anchor=anchor, target_id="b0", side=side, ratio=0.5)
+    )
     a = tmp_path / "x.palaterm"
     save_canvas(c, a, CharSet.UNICODE)
     loaded, _ = load_canvas(a)

@@ -9,8 +9,12 @@ from textual.widgets import Button
 from .collapsible import CollapsiblePanel
 
 _ALIGN_ACTIONS = [
-    ("├", "left"), ("┼", "center_h"), ("┤", "right"),
-    ("┬", "top"), ("─", "center_v"), ("┴", "bottom"),
+    ("├", "left"),
+    ("┼", "center_h"),
+    ("┤", "right"),
+    ("┬", "top"),
+    ("─", "center_v"),
+    ("┴", "bottom"),
 ]
 
 

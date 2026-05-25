@@ -37,8 +37,7 @@ class SelectModePanel(CollapsiblePanel):
 
     def set_active(self, mode: SelectMode) -> None:
         for btn in self.query(Button):
-            is_active = (
-                (btn.id == "mode-full" and mode == SelectMode.FULL) or
-                (btn.id == "mode-partial" and mode == SelectMode.PARTIAL)
+            is_active = (btn.id == "mode-full" and mode == SelectMode.FULL) or (
+                btn.id == "mode-partial" and mode == SelectMode.PARTIAL
             )
             btn.set_class(is_active, "active")

@@ -102,12 +102,20 @@ class RemoveShapes:
         self._removed_connectors: list[Connector] = []
 
     def execute(self) -> None:
-        self._indices = [(self._canvas.shapes.index(s), s) for s in self._shapes if s in self._canvas.shapes]
+        self._indices = [
+            (self._canvas.shapes.index(s), s)
+            for s in self._shapes
+            if s in self._canvas.shapes
+        ]
         self._removed_connectors = []
         for s in self._shapes:
-            self._removed_connectors.extend(self._canvas.connector_mgr.remove_by_target(s.id))
+            self._removed_connectors.extend(
+                self._canvas.connector_mgr.remove_by_target(s.id)
+            )
             if isinstance(s, LineShape):
-                self._removed_connectors.extend(self._canvas.connector_mgr.remove_by_line(s.id))
+                self._removed_connectors.extend(
+                    self._canvas.connector_mgr.remove_by_line(s.id)
+                )
             self._canvas.shapes = [x for x in self._canvas.shapes if x.id != s.id]
 
     def undo(self) -> None:
@@ -118,8 +126,9 @@ class RemoveShapes:
 
 
 class MoveShapes:
-    def __init__(self, shapes: list[Shape], dcol: int, drow: int,
-                 canvas: Canvas | None = None) -> None:
+    def __init__(
+        self, shapes: list[Shape], dcol: int, drow: int, canvas: Canvas | None = None
+    ) -> None:
         self._shapes = list(shapes)
         self._dcol = dcol
         self._drow = drow
@@ -143,19 +152,30 @@ class MoveShapes:
             for conn in self._canvas.connector_mgr.get_by_target(shape.id):
                 if conn.line_id in moved_ids:
                     continue
-                line = next((s for s in self._canvas.shapes if s.id == conn.line_id), None)
+                line = next(
+                    (s for s in self._canvas.shapes if s.id == conn.line_id), None
+                )
                 if not isinstance(line, LineShape):
                     continue
                 if conn.anchor == Anchor.START:
-                    line.follow_anchor("start", Point(line.start.col + dcol, line.start.row + drow))
+                    line.follow_anchor(
+                        "start", Point(line.start.col + dcol, line.start.row + drow)
+                    )
                 else:
-                    line.follow_anchor("end", Point(line.end.col + dcol, line.end.row + drow))
+                    line.follow_anchor(
+                        "end", Point(line.end.col + dcol, line.end.row + drow)
+                    )
 
 
 class AddShapes:
     """Add multiple shapes (and optionally connectors) in one undoable operation."""
 
-    def __init__(self, canvas: Canvas, shapes: list[Shape], connectors: list[Connector] | None = None) -> None:
+    def __init__(
+        self,
+        canvas: Canvas,
+        shapes: list[Shape],
+        connectors: list[Connector] | None = None,
+    ) -> None:
         self._canvas = canvas
         self._shapes = list(shapes)
         self._connectors = list(connectors) if connectors else []

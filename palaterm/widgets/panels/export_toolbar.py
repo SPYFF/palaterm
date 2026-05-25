@@ -43,4 +43,4 @@ class ExportPanel(CollapsiblePanel):
     def on_button_pressed(self, event: Button.Pressed) -> None:
         bid = event.button.id
         if bid and bid.startswith("export-"):
-            self.post_message(self.ExportRequested(bid[len("export-"):]))
+            self.post_message(self.ExportRequested(bid[len("export-") :]))

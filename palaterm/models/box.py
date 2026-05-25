@@ -7,13 +7,19 @@ import math
 from ..geometry import Rect
 from .base import RectShape, render_border
 from .charset import CharSet, braille_rect, braille_rect_precise
-from .enums import BORDER_CHARS, BorderStyle, FILL_CHARS, FillStyle, HAlign, VAlign
+from .enums import BORDER_CHARS, FILL_CHARS, BorderStyle, FillStyle, HAlign, VAlign
 
 
 class BoxShape(RectShape):
-    def __init__(self, rect: Rect, text: str = "", border: BorderStyle = BorderStyle.LIGHT,
-                 fill: FillStyle = FillStyle.NONE, halign: HAlign = HAlign.LEFT,
-                 valign: VAlign = VAlign.TOP):
+    def __init__(
+        self,
+        rect: Rect,
+        text: str = "",
+        border: BorderStyle = BorderStyle.LIGHT,
+        fill: FillStyle = FillStyle.NONE,
+        halign: HAlign = HAlign.LEFT,
+        valign: VAlign = VAlign.TOP,
+    ):
         super().__init__(rect)
         self.text = text
         self.border = border
@@ -49,7 +55,9 @@ class BoxShape(RectShape):
                     lf, tf, rf, bf = self.rect_f
                     cells.update(braille_rect_precise(lf, tf, rf, bf, charset))
                 else:
-                    cells.update(braille_rect(r.left, r.top, r.right, r.bottom, charset))
+                    cells.update(
+                        braille_rect(r.left, r.top, r.right, r.bottom, charset)
+                    )
             else:
                 if r.width == 1 and r.height == 1:
                     cells[(r.left, r.top)] = "□"
@@ -90,7 +98,12 @@ class BoxShape(RectShape):
                     x_offset = 0
                 for col_idx, ch in enumerate(visible):
                     if ch != " ":
-                        cells[(content_left + x_offset + col_idx, content_top + y_offset + row_idx)] = ch
+                        cells[
+                            (
+                                content_left + x_offset + col_idx,
+                                content_top + y_offset + row_idx,
+                            )
+                        ] = ch
 
         return cells
 
@@ -104,10 +117,16 @@ class BoxShape(RectShape):
         super().resize(new_rect)
         self.rect_f = None
 
-    def resize_f(self, left_f: float, top_f: float, right_f: float, bottom_f: float) -> None:
+    def resize_f(
+        self, left_f: float, top_f: float, right_f: float, bottom_f: float
+    ) -> None:
         """Resize with sub-cell precision; keeps integer rect as bounding box."""
-        self.rect_f = (min(left_f, right_f), min(top_f, bottom_f),
-                       max(left_f, right_f), max(top_f, bottom_f))
+        self.rect_f = (
+            min(left_f, right_f),
+            min(top_f, bottom_f),
+            max(left_f, right_f),
+            max(top_f, bottom_f),
+        )
         lf, tf, rf, bf = self.rect_f
         left = math.floor(lf)
         top = math.floor(tf)

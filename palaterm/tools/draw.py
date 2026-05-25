@@ -4,9 +4,17 @@ from __future__ import annotations
 
 import math
 
-from ..geometry import Point, Rect
-from ..models import BorderStyle, BoxShape, EndingStyle, FillStyle, LineShape, LineStyle, Shape
 from ..connectors import Anchor, Connector, SnapResult, find_snap
+from ..geometry import Point, Rect
+from ..models import (
+    BorderStyle,
+    BoxShape,
+    EndingStyle,
+    FillStyle,
+    LineShape,
+    LineStyle,
+    Shape,
+)
 from .overlays import Overlay, SnapHighlight
 
 
@@ -23,20 +31,41 @@ class DrawTool:
     def _update_shape(self, shape: Shape, start: Point, current: Point) -> None:
         shape.resize(Rect.from_points(start, current))  # type: ignore[attr-defined]
 
-    def on_mouse_down(self, col: int, row: int, canvas, *, pointer_x: float | None = None,
-                      pointer_y: float | None = None) -> Shape | None:
+    def on_mouse_down(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> Shape | None:
         self._start = Point(col, row)
         self._shape = self._create_shape(self._start)
         canvas.add_shape(self._shape)
         return self._shape
 
-    def on_mouse_drag(self, col: int, row: int, canvas, *, pointer_x: float | None = None,
-                      pointer_y: float | None = None) -> None:
+    def on_mouse_drag(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> None:
         if self._shape and self._start:
             self._update_shape(self._shape, self._start, Point(col, row))
 
-    def on_mouse_up(self, col: int, row: int, canvas, *, pointer_x: float | None = None,
-                    pointer_y: float | None = None) -> Shape | None:
+    def on_mouse_up(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> Shape | None:
         if self._shape and self._start:
             self._update_shape(self._shape, self._start, Point(col, row))
         result = self._shape
@@ -49,22 +78,36 @@ class DrawTool:
 
 
 class RectangleTool(DrawTool):
-    def __init__(self, border_style: BorderStyle = BorderStyle.LIGHT,
-                 fill: FillStyle = FillStyle.NONE) -> None:
+    def __init__(
+        self,
+        border_style: BorderStyle = BorderStyle.LIGHT,
+        fill: FillStyle = FillStyle.NONE,
+    ) -> None:
         super().__init__()
         self.border_style = border_style
         self.fill = fill
         self._start_f: tuple[float, float] | None = None
 
     def _create_shape(self, start: Point) -> Shape:
-        return BoxShape(Rect(start.col, start.row, 1, 1),
-                        border=self.border_style, fill=self.fill)
+        return BoxShape(
+            Rect(start.col, start.row, 1, 1), border=self.border_style, fill=self.fill
+        )
 
-    def on_mouse_down(self, col: int, row: int, canvas, *, pointer_x: float | None = None,
-                      pointer_y: float | None = None) -> Shape | None:
+    def on_mouse_down(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> Shape | None:
         result = super().on_mouse_down(col, row, canvas)
-        if (self.border_style == BorderStyle.BRAILLE
-                and pointer_x is not None and pointer_y is not None):
+        if (
+            self.border_style == BorderStyle.BRAILLE
+            and pointer_x is not None
+            and pointer_y is not None
+        ):
             self._start_f = (pointer_x, pointer_y)
             shape = self._shape
             if isinstance(shape, BoxShape):
@@ -73,19 +116,43 @@ class RectangleTool(DrawTool):
             self._start_f = None
         return result
 
-    def on_mouse_drag(self, col: int, row: int, canvas, *, pointer_x: float | None = None,
-                      pointer_y: float | None = None) -> None:
-        if self._start_f is not None and pointer_x is not None and pointer_y is not None:
+    def on_mouse_drag(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> None:
+        if (
+            self._start_f is not None
+            and pointer_x is not None
+            and pointer_y is not None
+        ):
             shape = self._shape
             if isinstance(shape, BoxShape):
                 sx, sy = self._start_f
                 shape.resize_f(sx, sy, pointer_x, pointer_y)
                 return
-        super().on_mouse_drag(col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y)
+        super().on_mouse_drag(
+            col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y
+        )
 
-    def on_mouse_up(self, col: int, row: int, canvas, *, pointer_x: float | None = None,
-                    pointer_y: float | None = None) -> Shape | None:
-        if self._start_f is not None and pointer_x is not None and pointer_y is not None:
+    def on_mouse_up(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> Shape | None:
+        if (
+            self._start_f is not None
+            and pointer_x is not None
+            and pointer_y is not None
+        ):
             shape = self._shape
             if isinstance(shape, BoxShape):
                 sx, sy = self._start_f
@@ -95,26 +162,35 @@ class RectangleTool(DrawTool):
                 self._shape = None
                 self._start = None
                 return result
-        return super().on_mouse_up(col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y)
+        return super().on_mouse_up(
+            col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y
+        )
 
 
 class TextTool(DrawTool):
-    def __init__(self, border_style: BorderStyle = BorderStyle.NONE,
-                 fill: FillStyle = FillStyle.NONE) -> None:
+    def __init__(
+        self,
+        border_style: BorderStyle = BorderStyle.NONE,
+        fill: FillStyle = FillStyle.NONE,
+    ) -> None:
         super().__init__()
         self.border_style = border_style
         self.fill = fill
 
     def _create_shape(self, start: Point) -> Shape:
-        return BoxShape(Rect(start.col, start.row, 1, 1),
-                        border=self.border_style, fill=self.fill)
+        return BoxShape(
+            Rect(start.col, start.row, 1, 1), border=self.border_style, fill=self.fill
+        )
 
 
 class LineTool(DrawTool):
-    def __init__(self, border_style: BorderStyle = BorderStyle.LIGHT,
-                 line_style: LineStyle = LineStyle.ORTHOGONAL,
-                 start_ending: EndingStyle = EndingStyle.NONE,
-                 end_ending: EndingStyle = EndingStyle.NONE) -> None:
+    def __init__(
+        self,
+        border_style: BorderStyle = BorderStyle.LIGHT,
+        line_style: LineStyle = LineStyle.ORTHOGONAL,
+        start_ending: EndingStyle = EndingStyle.NONE,
+        end_ending: EndingStyle = EndingStyle.NONE,
+    ) -> None:
         super().__init__()
         self.border_style = border_style
         self.line_style = line_style
@@ -124,7 +200,8 @@ class LineTool(DrawTool):
 
     @staticmethod
     def _to_sub(px: float, py: float) -> tuple[int, int]:
-        """Convert fractional pointer coords to braille sub-cell offset (sub_x: 0-1, sub_y: 0-3)."""
+        """Convert fractional pointer coords to braille sub-cell
+        offset (sub_x: 0-1, sub_y: 0-3)."""
         fx = px - math.floor(px)
         fy = py - math.floor(py)
         sub_x = 0 if fx < 0.5 else 1
@@ -132,12 +209,24 @@ class LineTool(DrawTool):
         return (sub_x, sub_y)
 
     def _create_shape(self, start: Point) -> Shape:
-        return LineShape(Point(start.col, start.row), Point(start.col, start.row),
-                         border=self.border_style, line_style=self.line_style,
-                         start_ending=self.start_ending, end_ending=self.end_ending)
+        return LineShape(
+            Point(start.col, start.row),
+            Point(start.col, start.row),
+            border=self.border_style,
+            line_style=self.line_style,
+            start_ending=self.start_ending,
+            end_ending=self.end_ending,
+        )
 
-    def on_mouse_down(self, col: int, row: int, canvas, *, pointer_x: float | None = None,
-                      pointer_y: float | None = None) -> Shape | None:
+    def on_mouse_down(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> Shape | None:
         result = super().on_mouse_down(col, row, canvas)
         # Check snap for start point
         line = self._shape
@@ -147,10 +236,15 @@ class LineTool(DrawTool):
                 line.start = snap.point
                 line.start_side = snap.side.name.lower()
                 line._recompute()
-                connector = Connector(line.id, Anchor.START, snap.target_id, snap.side, snap.ratio)
+                connector = Connector(
+                    line.id, Anchor.START, snap.target_id, snap.side, snap.ratio
+                )
                 canvas.connector_mgr.add(connector)
-            elif (pointer_x is not None and pointer_y is not None
-                    and line.line_style == LineStyle.STRAIGHT):
+            elif (
+                pointer_x is not None
+                and pointer_y is not None
+                and line.line_style == LineStyle.STRAIGHT
+            ):
                 line.start_sub = self._to_sub(pointer_x, pointer_y)
         return result
 
@@ -159,8 +253,15 @@ class LineTool(DrawTool):
         shape.end = Point(current.col, current.row)
         shape._recompute()
 
-    def on_mouse_drag(self, col: int, row: int, canvas, *, pointer_x: float | None = None,
-                      pointer_y: float | None = None) -> None:
+    def on_mouse_drag(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> None:
         if self._shape and self._start:
             line = self._shape
             assert isinstance(line, LineShape)
@@ -173,15 +274,25 @@ class LineTool(DrawTool):
                 line.end_sub = None
             else:
                 line.end_side = None
-                if (pointer_x is not None and pointer_y is not None
-                        and line.line_style == LineStyle.STRAIGHT):
+                if (
+                    pointer_x is not None
+                    and pointer_y is not None
+                    and line.line_style == LineStyle.STRAIGHT
+                ):
                     line.end_sub = self._to_sub(pointer_x, pointer_y)
                 else:
                     line.end_sub = None
             line._recompute()
 
-    def on_mouse_up(self, col: int, row: int, canvas, *, pointer_x: float | None = None,
-                    pointer_y: float | None = None) -> Shape | None:
+    def on_mouse_up(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> Shape | None:
         if self._shape and self._start:
             line = self._shape
             assert isinstance(line, LineShape)
@@ -191,13 +302,18 @@ class LineTool(DrawTool):
                 line.end = snap.point
                 line.end_side = snap.side.name.lower()
                 line.end_sub = None
-                connector = Connector(line.id, Anchor.END, snap.target_id, snap.side, snap.ratio)
+                connector = Connector(
+                    line.id, Anchor.END, snap.target_id, snap.side, snap.ratio
+                )
                 canvas.connector_mgr.add(connector)
             else:
                 line.end = Point(col, row)
                 line.end_side = None
-                if (pointer_x is not None and pointer_y is not None
-                        and line.line_style == LineStyle.STRAIGHT):
+                if (
+                    pointer_x is not None
+                    and pointer_y is not None
+                    and line.line_style == LineStyle.STRAIGHT
+                ):
                     line.end_sub = self._to_sub(pointer_x, pointer_y)
                 else:
                     line.end_sub = None

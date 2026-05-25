@@ -9,8 +9,14 @@ from ..geometry import Point, Rect
 from .base import Shape
 from .charset import CharSet
 from .enums import (
-    ARROW_CHARS, ARROW_CHARS_ASCII, BORDER_CHARS, BorderStyle,
-    Direction, ENDING_CHARS, EndingStyle, LineStyle,
+    ARROW_CHARS,
+    ARROW_CHARS_ASCII,
+    BORDER_CHARS,
+    ENDING_CHARS,
+    BorderStyle,
+    Direction,
+    EndingStyle,
+    LineStyle,
 )
 
 
@@ -54,16 +60,23 @@ def _reduce_joints(joints: list[Point]) -> list[Point]:
 
 
 _BRAILLE_DOTS = {
-    (0, 0): 0, (1, 0): 3,
-    (0, 1): 1, (1, 1): 4,
-    (0, 2): 2, (1, 2): 5,
-    (0, 3): 6, (1, 3): 7,
+    (0, 0): 0,
+    (1, 0): 3,
+    (0, 1): 1,
+    (1, 1): 4,
+    (0, 2): 2,
+    (1, 2): 5,
+    (0, 3): 6,
+    (1, 3): 7,
 }
 
 
-def _braille_line(start: Point, end: Point,
-                  start_offset: tuple[int, int] | None = None,
-                  end_offset: tuple[int, int] | None = None) -> dict[tuple[int, int], str]:
+def _braille_line(
+    start: Point,
+    end: Point,
+    start_offset: tuple[int, int] | None = None,
+    end_offset: tuple[int, int] | None = None,
+) -> dict[tuple[int, int], str]:
     """Render a straight line using braille sub-pixel resolution (2x4 per cell).
 
     start_offset/end_offset: optional (sub_x, sub_y) offsets within the cell
@@ -96,8 +109,9 @@ def _braille_line(start: Point, end: Point,
     return {pos: chr(0x2800 | bits) for pos, bits in cells.items()}
 
 
-
-def _braille_offsets(start: Point, end: Point) -> tuple[tuple[int, int], tuple[int, int]]:
+def _braille_offsets(
+    start: Point, end: Point
+) -> tuple[tuple[int, int], tuple[int, int]]:
     """Compute sub-cell offsets for braille line endpoints based on direction.
 
     Returns (start_offset, end_offset) where each is (sub_x: 0-1, sub_y: 0-3).
@@ -121,6 +135,7 @@ def _braille_offsets(start: Point, end: Point) -> tuple[tuple[int, int], tuple[i
     else:
         e_off = (1 if dx > 0 else 0, 3 if dy > 0 else 0)
     return s_off, e_off
+
 
 def _ascii_slope_char(dxc: int, dyc: int) -> str:
     if dxc == 0 and dyc == 0:
@@ -173,10 +188,15 @@ def _ascii_line(start: Point, end: Point) -> dict[tuple[int, int], str]:
 class LineShape(Shape):
     """A line connecting two points."""
 
-    def __init__(self, start: Point, end: Point, border: BorderStyle = BorderStyle.LIGHT,
-                 line_style: LineStyle = LineStyle.ORTHOGONAL,
-                 start_ending: EndingStyle = EndingStyle.NONE,
-                 end_ending: EndingStyle = EndingStyle.NONE):
+    def __init__(
+        self,
+        start: Point,
+        end: Point,
+        border: BorderStyle = BorderStyle.LIGHT,
+        line_style: LineStyle = LineStyle.ORTHOGONAL,
+        start_ending: EndingStyle = EndingStyle.NONE,
+        end_ending: EndingStyle = EndingStyle.NONE,
+    ):
         super().__init__()
         self.start = start
         self.end = end
@@ -218,15 +238,27 @@ class LineShape(Shape):
             # Same axis — need Z-shape (2 bends)
             if s_horiz:  # both horizontal
                 mid_col = (s.col + e.col) // 2
-                self._joint_points = [s, Point(mid_col, s.row), Point(mid_col, e.row), e]
+                self._joint_points = [
+                    s,
+                    Point(mid_col, s.row),
+                    Point(mid_col, e.row),
+                    e,
+                ]
             else:  # both vertical
                 mid_row = (s.row + e.row) // 2
-                self._joint_points = [s, Point(s.col, mid_row), Point(e.col, mid_row), e]
+                self._joint_points = [
+                    s,
+                    Point(s.col, mid_row),
+                    Point(e.col, mid_row),
+                    e,
+                ]
         elif s_horiz or (s_horiz is None and not e_horiz):
-            # Start goes horizontal, end goes vertical — L-shape corner at (e.col, s.row)
+            # Start goes horizontal, end goes vertical
+            # L-shape corner at (e.col, s.row)
             self._joint_points = [s, Point(e.col, s.row), e]
         else:
-            # Start goes vertical, end goes horizontal — L-shape corner at (s.col, e.row)
+            # Start goes vertical, end goes horizontal
+            # L-shape corner at (s.col, e.row)
             self._joint_points = [s, Point(s.col, e.row), e]
 
     @property
@@ -267,9 +299,13 @@ class LineShape(Shape):
                 return None
         for i in range(len(self._joint_points) - 1):
             p1, p2 = self._joint_points[i], self._joint_points[i + 1]
-            if p1.row == p2.row == row and min(p1.col, p2.col) < col < max(p1.col, p2.col):
+            if p1.row == p2.row == row and min(p1.col, p2.col) < col < max(
+                p1.col, p2.col
+            ):
                 return i
-            if p1.col == p2.col == col and min(p1.row, p2.row) < row < max(p1.row, p2.row):
+            if p1.col == p2.col == col and min(p1.row, p2.row) < row < max(
+                p1.row, p2.row
+            ):
                 return i
         return None
 
@@ -397,7 +433,8 @@ class LineShape(Shape):
 
     @staticmethod
     def _side_is_horizontal(side: str | None) -> bool | None:
-        """Returns True if the side implies horizontal exit, False for vertical, None if unset."""
+        """Returns True if side implies horizontal exit,
+        False for vertical, None if unset."""
         if side in ("left", "right"):
             return True
         if side in ("top", "bottom"):
@@ -422,7 +459,9 @@ class LineShape(Shape):
         self.start = Point(self.start.col + dcol, self.start.row + drow)
         self.end = Point(self.end.col + dcol, self.end.row + drow)
         if self._edges_modified:
-            self._joint_points = [Point(p.col + dcol, p.row + drow) for p in self._joint_points]
+            self._joint_points = [
+                Point(p.col + dcol, p.row + drow) for p in self._joint_points
+            ]
         self._recompute()
 
     def hit_test(self, col: int, row: int) -> bool:
@@ -448,7 +487,11 @@ class LineShape(Shape):
                 else:
                     cells: dict[tuple[int, int], str] = {}
                     for i in range(len(self._joint_points) - 1):
-                        cells.update(_ascii_line(self._joint_points[i], self._joint_points[i + 1]))
+                        cells.update(
+                            _ascii_line(
+                                self._joint_points[i], self._joint_points[i + 1]
+                            )
+                        )
             else:
                 if self.line_style == LineStyle.STRAIGHT:
                     default_s, default_e = _braille_offsets(self.start, self.end)
@@ -510,21 +553,27 @@ class LineShape(Shape):
             if self.start_ending != EndingStyle.NONE:
                 direction = self._direction_from_points(adj_start, points[0])
                 cells[(points[0].col, points[0].row)] = self._ending_char(
-                    self.start_ending, direction, charset)
+                    self.start_ending, direction, charset
+                )
             else:
                 cells[(points[0].col, points[0].row)] = self._endpoint_char(
-                    points[0], adj_start)
+                    points[0], adj_start
+                )
             if self.end_ending != EndingStyle.NONE:
                 direction = self._direction_from_points(adj_end, points[-1])
                 cells[(points[-1].col, points[-1].row)] = self._ending_char(
-                    self.end_ending, direction, charset)
+                    self.end_ending, direction, charset
+                )
             else:
                 cells[(points[-1].col, points[-1].row)] = self._endpoint_char(
-                    points[-1], adj_end, is_end=True)
+                    points[-1], adj_end, is_end=True
+                )
 
         return cells
 
-    def _apply_endings(self, cells: dict[tuple[int, int], str], charset: CharSet) -> None:
+    def _apply_endings(
+        self, cells: dict[tuple[int, int], str], charset: CharSet
+    ) -> None:
         """Apply endpoint styles to straight/braille line cells."""
         if self.line_style == LineStyle.STRAIGHT:
             pts = [self.start, self.end]
@@ -535,13 +584,17 @@ class LineShape(Shape):
         if self.start_ending != EndingStyle.NONE:
             direction = self._direction_from_points(pts[1], pts[0])
             cells[(pts[0].col, pts[0].row)] = self._ending_char(
-                self.start_ending, direction, charset)
+                self.start_ending, direction, charset
+            )
         if self.end_ending != EndingStyle.NONE:
             direction = self._direction_from_points(pts[-2], pts[-1])
             cells[(pts[-1].col, pts[-1].row)] = self._ending_char(
-                self.end_ending, direction, charset)
+                self.end_ending, direction, charset
+            )
 
-    def _endpoint_char(self, point: Point, adjacent: Point, is_end: bool = False) -> str:
+    def _endpoint_char(
+        self, point: Point, adjacent: Point, is_end: bool = False
+    ) -> str:
         if point.col == adjacent.col and point.row == adjacent.row:
             return "•"
         if point.row == adjacent.row:
@@ -552,7 +605,9 @@ class LineShape(Shape):
             return "╻" if adjacent.row > point.row else "╹"
         return "╷" if adjacent.row > point.row else "╵"
 
-    def _ending_char(self, style: EndingStyle, direction: Direction, charset: CharSet) -> str:
+    def _ending_char(
+        self, style: EndingStyle, direction: Direction, charset: CharSet
+    ) -> str:
         """Get the character for a given ending style and direction."""
         if style == EndingStyle.ARROW:
             if charset == CharSet.ASCII:
@@ -572,5 +627,13 @@ class LineShape(Shape):
         angle = math.atan2(-dr, dc)  # y-axis inverted in terminal
         # Quantize to 8 sectors (each 45°)
         idx = round(angle / (math.pi / 4)) % 8
-        return [Direction.E, Direction.NE, Direction.N, Direction.NW,
-                Direction.W, Direction.SW, Direction.S, Direction.SE][idx]
+        return [
+            Direction.E,
+            Direction.NE,
+            Direction.N,
+            Direction.NW,
+            Direction.W,
+            Direction.SW,
+            Direction.S,
+            Direction.SE,
+        ][idx]

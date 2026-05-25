@@ -13,15 +13,20 @@ from textual.strip import Strip
 
 from ..canvas import Canvas
 from ..canvas_geometry import (
-    anchor_scroll_after_resize, compute_virtual_extent, grow_terminal_floor,
+    anchor_scroll_after_resize,
+    compute_virtual_extent,
+    grow_terminal_floor,
 )
 from ..commands import CommandHistory
 from ..geometry import Rect
-from ..rendering import FrameRenderer
 from ..models import BoxShape, CharSet
+from ..rendering import FrameRenderer
 from ..tools import DrawTool, SelectTool, TextTool
 from ..tools.gestures import (
-    EdgeDragCommit, GestureCommit, MoveCommit, ResizeCommit,
+    EdgeDragCommit,
+    GestureCommit,
+    MoveCommit,
+    ResizeCommit,
 )
 from .modals import TextEditModal
 
@@ -120,13 +125,17 @@ class CanvasWidget(ScrollView, can_focus=True):
         self.virtual_size = Size(extent.width, extent.height)
 
     def _update_virtual_size_preserving_anchor(self) -> None:
-        """Recompute the extent, then re-anchor scroll to keep the top-left shape coord stable."""
+        """Recompute the extent, then re-anchor scroll to keep
+        the top-left shape coord stable."""
         old_extent = self._extent
         old_scroll_x = int(self.scroll_x)
         old_scroll_y = int(self.scroll_y)
         self._update_virtual_size()
         new_x, new_y = anchor_scroll_after_resize(
-            old_extent, self._extent, old_scroll_x, old_scroll_y,
+            old_extent,
+            self._extent,
+            old_scroll_x,
+            old_scroll_y,
         )
         if (new_x, new_y) != (old_scroll_x, old_scroll_y):
             self.scroll_to(new_x, new_y, animate=False)
@@ -137,7 +146,9 @@ class CanvasWidget(ScrollView, can_focus=True):
         # determines how much room there is to draw. Treat it as the
         # contributor to the floor.
         new_floor = grow_terminal_floor(
-            self._terminal_floor, event.size.width, event.size.height,
+            self._terminal_floor,
+            event.size.width,
+            event.size.height,
         )
         if new_floor != self._terminal_floor:
             self._terminal_floor = new_floor
@@ -189,14 +200,18 @@ class CanvasWidget(ScrollView, can_focus=True):
     def _to_canvas_coords(self, x: int, y: int) -> tuple[int, int]:
         return x + self._scroll_col, y + self._scroll_row
 
-    def _to_canvas_coords_f(self, pointer_x: float, pointer_y: float) -> tuple[int, int]:
+    def _to_canvas_coords_f(
+        self, pointer_x: float, pointer_y: float
+    ) -> tuple[int, int]:
         """Floor pointer floats to the cell they fall into.
 
         Must use floor (not round) so that sub-cell offsets — which are derived
         from the same floor — describe a position *inside* the returned cell
         rather than a phantom position in the next cell over.
         """
-        return math.floor(pointer_x) + self._scroll_col, math.floor(pointer_y) + self._scroll_row
+        return math.floor(pointer_x) + self._scroll_col, math.floor(
+            pointer_y
+        ) + self._scroll_row
 
     def open_text_editor(self, shape: BoxShape) -> None:
         self._editing = True
@@ -206,10 +221,12 @@ class CanvasWidget(ScrollView, can_focus=True):
             if result is not None and result.strip():
                 shape.text = result
                 lines = result.split("\n")
-                w = max((len(l) for l in lines), default=0) + 2
+                w = max((len(ln) for ln in lines), default=0) + 2
                 h = len(lines) + 2
                 r = shape.rect
-                shape.rect = Rect(r.left, r.top, max(r.width, w, 3), max(r.height, h, 3))
+                shape.rect = Rect(
+                    r.left, r.top, max(r.width, w, 3), max(r.height, h, 3)
+                )
             else:
                 if not shape.text:
                     self.canvas.remove_shape(shape)
@@ -222,8 +239,15 @@ class CanvasWidget(ScrollView, can_focus=True):
         canvas_col = scroll_x + self._extent.left
         canvas_row = scroll_y + self._extent.top
         region = self.scrollable_content_region
-        viewport = Rect(canvas_col, canvas_row, region.width or self.size.width, region.height or self.size.height)
-        return self._renderer.render_line(y, viewport, self.tool, self.rich_style, self.charset)
+        viewport = Rect(
+            canvas_col,
+            canvas_row,
+            region.width or self.size.width,
+            region.height or self.size.height,
+        )
+        return self._renderer.render_line(
+            y, viewport, self.tool, self.rich_style, self.charset
+        )
 
     # ---- Refresh API ----------------------------------------------------
     #
@@ -354,8 +378,9 @@ class CanvasWidget(ScrollView, can_focus=True):
         bounds: list[Rect] = []
         for shape_id in shape_ids:
             for conn in self.canvas.connector_mgr.get_by_target(shape_id):
-                line = next((sh for sh in self.canvas.shapes
-                             if sh.id == conn.line_id), None)
+                line = next(
+                    (sh for sh in self.canvas.shapes if sh.id == conn.line_id), None
+                )
                 if line is not None:
                     bounds.append(line.bound)
         return bounds
@@ -369,9 +394,12 @@ class CanvasWidget(ScrollView, can_focus=True):
         now = time.monotonic()
         if isinstance(self.tool, SelectTool) and event.button == 1:
             hit = self.canvas.shape_at(col, row)
-            if (hit and isinstance(hit, BoxShape) and
-                    now - self._last_click_time < 0.4 and
-                    self._last_click_pos == (col, row)):
+            if (
+                hit
+                and isinstance(hit, BoxShape)
+                and now - self._last_click_time < 0.4
+                and self._last_click_pos == (col, row)
+            ):
                 self.tool.selected = [hit]
                 self.open_text_editor(hit)
                 self._last_click_time = 0
@@ -382,8 +410,15 @@ class CanvasWidget(ScrollView, can_focus=True):
         self._mouse_down = True
         before = self._tool_dirty_bounds()
         if isinstance(self.tool, SelectTool):
-            self.tool.on_mouse_down(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta,
-                                    pointer_x=px, pointer_y=py)
+            self.tool.on_mouse_down(
+                col,
+                row,
+                self.canvas,
+                ctrl=event.ctrl,
+                alt=event.meta,
+                pointer_x=px,
+                pointer_y=py,
+            )
         else:
             self.tool.on_mouse_down(col, row, self.canvas, pointer_x=px, pointer_y=py)
         self._refresh_dirty_since(before)
@@ -410,9 +445,11 @@ class CanvasWidget(ScrollView, can_focus=True):
             self.tool.hover_shape = new
             self.tool.update_hover(col, row, pointer_x=px, pointer_y=py)
             self._update_pointer_for_hover()
-            edge_changed = (old_edge_line is not self.tool.hover_edge_line
-                            or old_edge_index != self.tool.hover_edge_index
-                            or old_edge_whole != self.tool.hover_edge_whole)
+            edge_changed = (
+                old_edge_line is not self.tool.hover_edge_line
+                or old_edge_index != self.tool.hover_edge_index
+                or old_edge_whole != self.tool.hover_edge_whole
+            )
             if new != old or edge_changed:
                 dirty = [s.bound for s in (old, new) if s is not None]
                 if old_edge_line is not None:
@@ -449,7 +486,10 @@ class CanvasWidget(ScrollView, can_focus=True):
             self.styles.pointer = _HANDLE_CURSORS.get(h, "default")
         elif self.tool.hover_edge_whole:
             self.styles.pointer = "move"
-        elif self.tool.hover_edge_line is not None and self.tool.hover_edge_index is not None:
+        elif (
+            self.tool.hover_edge_line is not None
+            and self.tool.hover_edge_index is not None
+        ):
             line = self.tool.hover_edge_line
             idx = self.tool.hover_edge_index
             if line.edge_is_horizontal(idx):
@@ -471,11 +511,20 @@ class CanvasWidget(ScrollView, can_focus=True):
         py = event.pointer_y + self._scroll_row
         before = self._tool_dirty_bounds()
         if isinstance(self.tool, SelectTool):
-            commit = self.tool.on_mouse_up(col, row, self.canvas, ctrl=event.ctrl, alt=event.meta,
-                                           pointer_x=px, pointer_y=py)
+            commit = self.tool.on_mouse_up(
+                col,
+                row,
+                self.canvas,
+                ctrl=event.ctrl,
+                alt=event.meta,
+                pointer_x=px,
+                pointer_y=py,
+            )
             self._post_gesture_commit(commit)
         else:
-            result = self.tool.on_mouse_up(col, row, self.canvas, pointer_x=px, pointer_y=py)
+            result = self.tool.on_mouse_up(
+                col, row, self.canvas, pointer_x=px, pointer_y=py
+            )
             if isinstance(self.tool, TextTool) and isinstance(result, BoxShape):
                 self.open_text_editor(result)
             elif result is not None:
@@ -487,7 +536,9 @@ class CanvasWidget(ScrollView, can_focus=True):
             return
         if isinstance(commit, MoveCommit):
             if commit.dcol != 0 or commit.drow != 0:
-                self.post_message(self.ShapeMoved(commit.shapes, commit.dcol, commit.drow))
+                self.post_message(
+                    self.ShapeMoved(commit.shapes, commit.dcol, commit.drow)
+                )
         elif isinstance(commit, ResizeCommit):
             self.post_message(self.ShapeResized(commit.shape, commit.old_attrs))
         elif isinstance(commit, EdgeDragCommit):

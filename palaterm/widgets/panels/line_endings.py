@@ -73,7 +73,9 @@ class LineEndingsPanel(CollapsiblePanel):
     def compose_body(self) -> ComposeResult:
         with Horizontal():
             for style in EndingStyle:
-                yield EndingButton(style, "start", id=f"ending-start-{style.name.lower()}")
+                yield EndingButton(
+                    style, "start", id=f"ending-start-{style.name.lower()}"
+                )
         with Horizontal():
             for style in EndingStyle:
                 yield EndingButton(style, "end", id=f"ending-end-{style.name.lower()}")
@@ -83,9 +85,8 @@ class LineEndingsPanel(CollapsiblePanel):
 
     def set_active(self, start: EndingStyle, end: EndingStyle) -> None:
         for btn in self.query(EndingButton):
-            is_active = (
-                (btn.endpoint == "start" and btn.ending == start) or
-                (btn.endpoint == "end" and btn.ending == end)
+            is_active = (btn.endpoint == "start" and btn.ending == start) or (
+                btn.endpoint == "end" and btn.ending == end
             )
             btn.set_class(is_active, "active")
 

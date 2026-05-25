@@ -14,15 +14,19 @@ from __future__ import annotations
 
 from palaterm.canvas import Canvas
 from palaterm.commands import (
-    AddShape, AddShapes, CommandHistory, MoveShapes, RemoveShapes,
+    AddShape,
+    AddShapes,
+    CommandHistory,
+    MoveShapes,
+    RemoveShapes,
     TransformShapes,
 )
 from palaterm.connectors import Anchor, Connector, Side
 from palaterm.geometry import Point, Rect
 from palaterm.models import BorderStyle, BoxShape, LineShape
 
-
 # --- helpers -------------------------------------------------------------
+
 
 def _make_box(canvas_id: str = "b0", x: int = 0, y: int = 0) -> BoxShape:
     box = BoxShape(Rect(x, y, 4, 3), border=BorderStyle.LIGHT)
@@ -31,6 +35,7 @@ def _make_box(canvas_id: str = "b0", x: int = 0, y: int = 0) -> BoxShape:
 
 
 # --- AddShape ------------------------------------------------------------
+
 
 def test_add_shape_undo_redo() -> None:
     canvas = Canvas()
@@ -52,6 +57,7 @@ def test_add_shape_undo_redo() -> None:
 
 
 # --- RemoveShapes --------------------------------------------------------
+
 
 def test_remove_shapes_undo_restores_position() -> None:
     """After undo, the removed shape lives at its original list index."""
@@ -77,10 +83,15 @@ def test_remove_shapes_undo_restores_connectors() -> None:
     line = LineShape(Point(10, 0), Point(20, 5))
     line.id = "line"
     canvas.shapes = [box, line]
-    canvas.connector_mgr.add(Connector(
-        line_id="line", anchor=Anchor.START, target_id="box",
-        side=Side.RIGHT, ratio=0.5,
-    ))
+    canvas.connector_mgr.add(
+        Connector(
+            line_id="line",
+            anchor=Anchor.START,
+            target_id="box",
+            side=Side.RIGHT,
+            ratio=0.5,
+        )
+    )
 
     history = CommandHistory()
     history.execute(RemoveShapes(canvas, [box]))
@@ -100,10 +111,15 @@ def test_remove_line_undo_restores_line_connectors() -> None:
     line = LineShape(Point(10, 0), Point(20, 5))
     line.id = "line"
     canvas.shapes = [box, line]
-    canvas.connector_mgr.add(Connector(
-        line_id="line", anchor=Anchor.START, target_id="box",
-        side=Side.RIGHT, ratio=0.5,
-    ))
+    canvas.connector_mgr.add(
+        Connector(
+            line_id="line",
+            anchor=Anchor.START,
+            target_id="box",
+            side=Side.RIGHT,
+            ratio=0.5,
+        )
+    )
 
     history = CommandHistory()
     history.execute(RemoveShapes(canvas, [line]))
@@ -114,6 +130,7 @@ def test_remove_line_undo_restores_line_connectors() -> None:
 
 
 # --- MoveShapes ----------------------------------------------------------
+
 
 def test_move_shapes_undo_restores_position() -> None:
     canvas = Canvas()
@@ -152,8 +169,15 @@ def test_move_shapes_resets_connected_line_to_derived() -> None:
     line.move_edge(1, P(8, 3))
     assert line.routing.edges_modified
     canvas.shapes = [box, line]
-    canvas.connector_mgr.add(Connector(line_id="L", anchor=Anchor.START,
-                                       target_id="box", side=Side.RIGHT, ratio=0.5))
+    canvas.connector_mgr.add(
+        Connector(
+            line_id="L",
+            anchor=Anchor.START,
+            target_id="box",
+            side=Side.RIGHT,
+            ratio=0.5,
+        )
+    )
 
     box.move(2, 0)
     cmd = MoveShapes([box], 2, 0, canvas)
@@ -181,8 +205,15 @@ def test_move_shapes_undo_translates_connected_line_back() -> None:
     line.end_side = "left"
     line._recompute()
     canvas.shapes = [box, line]
-    canvas.connector_mgr.add(Connector(line_id="L", anchor=Anchor.START,
-                                       target_id="box", side=Side.RIGHT, ratio=0.5))
+    canvas.connector_mgr.add(
+        Connector(
+            line_id="L",
+            anchor=Anchor.START,
+            target_id="box",
+            side=Side.RIGHT,
+            ratio=0.5,
+        )
+    )
 
     box.move(2, 0)
     cmd = MoveShapes([box], 2, 0, canvas)
@@ -197,6 +228,7 @@ def test_move_shapes_undo_translates_connected_line_back() -> None:
 
 
 # --- TransformShapes -----------------------------------------------------
+
 
 def test_transform_shapes_undo_restores_attribute() -> None:
     canvas = Canvas()
@@ -218,13 +250,15 @@ def test_transform_shapes_undo_restores_attribute() -> None:
 
 # --- AddShapes -----------------------------------------------------------
 
+
 def test_add_shapes_with_connectors() -> None:
     canvas = Canvas()
     box = _make_box("box", 0, 0)
     line = LineShape(Point(10, 0), Point(20, 5))
     line.id = "line"
-    conn = Connector(line_id="line", anchor=Anchor.START, target_id="box",
-                     side=Side.RIGHT, ratio=0.5)
+    conn = Connector(
+        line_id="line", anchor=Anchor.START, target_id="box", side=Side.RIGHT, ratio=0.5
+    )
 
     history = CommandHistory()
     history.execute(AddShapes(canvas, [box, line], [conn]))
@@ -237,6 +271,7 @@ def test_add_shapes_with_connectors() -> None:
 
 
 # --- CommandHistory plumbing --------------------------------------------
+
 
 def test_history_dirty_flag_tracks_save_point() -> None:
     canvas = Canvas()
@@ -260,7 +295,8 @@ def test_history_undo_returns_false_when_empty() -> None:
 
 
 def test_push_clears_redo_stack() -> None:
-    """A new push after an undo invalidates the redo branch — standard editor behavior."""
+    """A new push after an undo invalidates the redo branch
+    — standard editor behavior."""
     canvas = Canvas()
     history = CommandHistory()
     history.execute(AddShape(canvas, _make_box("a")))

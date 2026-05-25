@@ -2,7 +2,6 @@
 
 from .canvas import CanvasWidget
 from .modals import ConfirmModal, FilePathModal, TextEditModal
-from .status_bar import StatusBar
 from .panels import (
     AlignCell,
     BorderStylePanel,
@@ -19,6 +18,7 @@ from .panels import (
     TextAlignPanel,
     ToolPicker,
 )
+from .status_bar import StatusBar
 
 __all__ = [
     "CanvasWidget",
@@ -32,8 +32,10 @@ __all__ = [
     "BorderStylePanel",
     "FillPanel",
     "LineStylePanel",
-    "LineEndingsPanel", "EndingButton",
-    "TextAlignPanel", "AlignCell",
+    "LineEndingsPanel",
+    "EndingButton",
+    "TextAlignPanel",
+    "AlignCell",
     "ShapeAlignPanel",
     "LayerPanel",
     "ColorPanel",

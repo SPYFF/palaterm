@@ -11,7 +11,10 @@ from .enums import BORDER_CHARS, BorderStyle
 
 
 def render_border(rect: Rect, border: BorderStyle) -> dict[tuple[int, int], str]:
-    """Render box-drawing border characters for a rect. Requires width >= 2 and height >= 2."""
+    """Render box-drawing border characters for a rect.
+
+    Requires width >= 2 and height >= 2.
+    """
     tl, tr, bl, br, h, v = BORDER_CHARS[border]
     cells: dict[tuple[int, int], str] = {}
     cells[(rect.left, rect.top)] = tl
@@ -40,7 +43,9 @@ class Shape(ABC):
     def bound(self) -> Rect: ...
 
     @abstractmethod
-    def render(self, charset: CharSet = CharSet.UNICODE) -> dict[tuple[int, int], str]: ...
+    def render(
+        self, charset: CharSet = CharSet.UNICODE
+    ) -> dict[tuple[int, int], str]: ...
 
     def hit_test(self, col: int, row: int) -> bool:
         return self.bound.contains(col, row)
@@ -61,7 +66,12 @@ class RectShape(Shape):
         return self.rect
 
     def move(self, dcol: int, drow: int) -> None:
-        self.rect = Rect(self.rect.left + dcol, self.rect.top + drow, self.rect.width, self.rect.height)
+        self.rect = Rect(
+            self.rect.left + dcol,
+            self.rect.top + drow,
+            self.rect.width,
+            self.rect.height,
+        )
 
     def resize(self, new_rect: Rect) -> None:
         self.rect = new_rect

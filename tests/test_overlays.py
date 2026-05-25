@@ -24,8 +24,9 @@ def test_rectangle_tool_emits_no_overlays() -> None:
 
 def test_line_tool_with_snap_target_emits_snap_highlight() -> None:
     tool = LineTool()
-    tool.snap_target = SnapResult(target_id="abc", side=Side.RIGHT,
-                                    ratio=0.5, point=Point(0, 0))
+    tool.snap_target = SnapResult(
+        target_id="abc", side=Side.RIGHT, ratio=0.5, point=Point(0, 0)
+    )
     overlays = tool.overlays()
     assert overlays == [SnapHighlight(target_id="abc", side=Side.RIGHT)]
 
@@ -58,21 +59,23 @@ def test_select_tool_emits_whole_line_edge_hover_at_joint() -> None:
 
 def test_renderer_consumes_snap_highlight() -> None:
     """The cache should populate snap_edge_cells from a SnapHighlight overlay."""
-    from rich.style import Style as RichStyle
-
     from palaterm.models import CharSet
     from palaterm.rendering import FrameRenderer
+    from rich.style import Style as RichStyle
 
     canvas = Canvas()
     box = BoxShape(rect=Rect(2, 2, 6, 4))
     canvas.add_shape(box)
 
     tool = LineTool()
-    tool.snap_target = SnapResult(target_id=box.id, side=Side.LEFT,
-                                    ratio=0.5, point=Point(2, 4))
+    tool.snap_target = SnapResult(
+        target_id=box.id, side=Side.LEFT, ratio=0.5, point=Point(2, 4)
+    )
 
     renderer = FrameRenderer(canvas)
-    cache = renderer._ensure_cache(Rect(0, 0, 20, 20), tool, RichStyle(), CharSet.UNICODE)
+    cache = renderer._ensure_cache(
+        Rect(0, 0, 20, 20), tool, RichStyle(), CharSet.UNICODE
+    )
     snap_edge_cells = cache[6]
 
     # Left edge runs from (2, 2) to (2, 5).

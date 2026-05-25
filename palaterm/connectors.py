@@ -23,6 +23,7 @@ class Anchor(Enum):
 @dataclass
 class Connector:
     """A connection between a line endpoint and a shape edge."""
+
     line_id: str
     anchor: Anchor
     target_id: str
@@ -98,13 +99,16 @@ def point_on_edge(bound: Rect, side: Side, ratio: float) -> Point:
 @dataclass
 class SnapResult:
     """Result of snap detection."""
+
     target_id: str
     side: Side
     ratio: float
     point: Point  # the exact point on the edge
 
 
-def find_snap(col: int, row: int, shapes: list, exclude_id: str | None = None, max_dist: int = 0) -> SnapResult | None:
+def find_snap(
+    col: int, row: int, shapes: list, exclude_id: str | None = None, max_dist: int = 0
+) -> SnapResult | None:
     """Find the nearest connectable shape edge within max_dist cells.
 
     Only Rectangle and Text shapes are connectable.

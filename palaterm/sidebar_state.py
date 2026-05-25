@@ -80,7 +80,9 @@ def compute_sidebar_state(tool, tool_ctrl) -> SidebarState:
 
     # Border
     bordered = [s for s in selected if hasattr(s, "border")]
-    show_border = isinstance(tool, (RectangleTool, TextTool, LineTool)) or bool(bordered)
+    show_border = isinstance(tool, (RectangleTool, TextTool, LineTool)) or bool(
+        bordered
+    )
     if isinstance(tool, (RectangleTool, TextTool, LineTool)):
         border_active: object | None = tool_ctrl.border_style
     elif is_select and bordered:
@@ -105,14 +107,14 @@ def compute_sidebar_state(tool, tool_ctrl) -> SidebarState:
     show_line = isinstance(tool, LineTool) or bool(lines)
     if isinstance(tool, LineTool):
         line_active: object | None = tool_ctrl.line_style
-        endings = LineEndingsState(visible=True,
-                                    start=tool_ctrl.start_ending,
-                                    end=tool_ctrl.end_ending)
+        endings = LineEndingsState(
+            visible=True, start=tool_ctrl.start_ending, end=tool_ctrl.end_ending
+        )
     elif is_select and lines:
         line_active = lines[0].line_style
-        endings = LineEndingsState(visible=True,
-                                    start=lines[0].start_ending,
-                                    end=lines[0].end_ending)
+        endings = LineEndingsState(
+            visible=True, start=lines[0].start_ending, end=lines[0].end_ending
+        )
     else:
         line_active = None
         endings = LineEndingsState(visible=show_line)
@@ -121,9 +123,9 @@ def compute_sidebar_state(tool, tool_ctrl) -> SidebarState:
     # Text align
     text_shapes = [s for s in selected if isinstance(s, BoxShape) and s.text]
     if text_shapes:
-        text_align = TextAlignState(visible=True,
-                                     halign=text_shapes[0].halign,
-                                     valign=text_shapes[0].valign)
+        text_align = TextAlignState(
+            visible=True, halign=text_shapes[0].halign, valign=text_shapes[0].valign
+        )
     else:
         text_align = TextAlignState(visible=False)
 

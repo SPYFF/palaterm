@@ -1,17 +1,17 @@
 """Sidebar panel widgets."""
 
-from .collapsible import CollapsiblePanel
-from .tool_picker import ToolPicker
-from .select_mode import SelectModePanel
 from .border_style import BorderStylePanel
-from .fill_style import FillPanel
-from .line_style import LineStylePanel
-from .line_endings import LineEndingsPanel, EndingButton
-from .text_align import TextAlignPanel, AlignCell
-from .shape_align import ShapeAlignPanel
-from .layer import LayerPanel
+from .collapsible import CollapsiblePanel
 from .color_toolbar import ColorPanel, ColorSwatchGrid
 from .export_toolbar import ExportPanel
+from .fill_style import FillPanel
+from .layer import LayerPanel
+from .line_endings import EndingButton, LineEndingsPanel
+from .line_style import LineStylePanel
+from .select_mode import SelectModePanel
+from .shape_align import ShapeAlignPanel
+from .text_align import AlignCell, TextAlignPanel
+from .tool_picker import ToolPicker
 
 __all__ = [
     "CollapsiblePanel",
@@ -20,10 +20,13 @@ __all__ = [
     "BorderStylePanel",
     "FillPanel",
     "LineStylePanel",
-    "LineEndingsPanel", "EndingButton",
-    "TextAlignPanel", "AlignCell",
+    "LineEndingsPanel",
+    "EndingButton",
+    "TextAlignPanel",
+    "AlignCell",
     "ShapeAlignPanel",
     "LayerPanel",
-    "ColorPanel", "ColorSwatchGrid",
+    "ColorPanel",
+    "ColorSwatchGrid",
     "ExportPanel",
 ]

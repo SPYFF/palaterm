@@ -5,16 +5,19 @@ from __future__ import annotations
 import re
 
 import pytest
-
 from palaterm.canvas import Canvas
+from palaterm.exporters import (
+    _RICH_TO_CSS,
+    export_html,
+    export_presenterm,
+    export_svg,
+    to_css,
+)
 from palaterm.geometry import Rect
 from palaterm.models import BorderStyle, BoxShape, CharSet, FillStyle
-from palaterm.exporters import (
-    _RICH_TO_CSS, export_html, export_presenterm, export_svg, to_css,
-)
-
 
 # --- shared helpers --------------------------------------------------------
+
 
 def _three_box_canvas() -> Canvas:
     """A small canvas: a red box and a cyan-on-blue box side by side."""
@@ -33,6 +36,7 @@ def _three_box_canvas() -> Canvas:
 
 # --- to_css ---------------------------------------------------------------
 
+
 @pytest.mark.parametrize("rich,css", list(_RICH_TO_CSS.items()))
 def test_to_css_known_names(rich: str, css: str) -> None:
     assert to_css(rich) == css
@@ -49,6 +53,7 @@ def test_to_css_unknown_passes_through() -> None:
 
 
 # --- text export ---------------------------------------------------------
+
 
 def test_text_export_basic() -> None:
     c = _three_box_canvas()
@@ -86,11 +91,11 @@ def test_text_export_selected_only() -> None:
 
 # --- HTML export ---------------------------------------------------------
 
+
 def test_html_export_runs_combine_adjacent_same_style() -> None:
     """Ten adjacent solid-fill cells of one color produce one span, not ten."""
     c = Canvas()
-    box = BoxShape(Rect(0, 0, 10, 1), border=BorderStyle.NONE,
-                   fill=FillStyle.FULL)
+    box = BoxShape(Rect(0, 0, 10, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
     box.fg = "red"
     box.id = "b0"
     c.add_shape(box)
@@ -102,12 +107,12 @@ def test_html_export_runs_combine_adjacent_same_style() -> None:
 def test_html_export_run_grouping_breaks_on_color_change() -> None:
     """Two side-by-side fills of different color → exactly two spans."""
     c = Canvas()
-    a = BoxShape(Rect(0, 0, 5, 1), border=BorderStyle.NONE,
-                 fill=FillStyle.FULL)
-    a.fg = "red"; a.id = "a"
-    b = BoxShape(Rect(5, 0, 5, 1), border=BorderStyle.NONE,
-                 fill=FillStyle.FULL)
-    b.fg = "green"; b.id = "b"
+    a = BoxShape(Rect(0, 0, 5, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
+    a.fg = "red"
+    a.id = "a"
+    b = BoxShape(Rect(5, 0, 5, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
+    b.fg = "green"
+    b.id = "b"
     c.add_shape(a)
     c.add_shape(b)
     html = export_html(c)
@@ -145,8 +150,7 @@ def test_html_export_empty_canvas(empty_canvas: Canvas) -> None:
 def test_html_export_escapes_special_chars() -> None:
     """``<``, ``>``, ``&`` in shape text must be HTML-escaped."""
     c = Canvas()
-    box = BoxShape(Rect(0, 0, 12, 3), border=BorderStyle.LIGHT,
-                   text="<a&b>")
+    box = BoxShape(Rect(0, 0, 12, 3), border=BorderStyle.LIGHT, text="<a&b>")
     box.id = "b0"
     c.add_shape(box)
     html = export_html(c)
@@ -155,6 +159,7 @@ def test_html_export_escapes_special_chars() -> None:
 
 
 # --- SVG export ----------------------------------------------------------
+
 
 def test_svg_export_is_pure_svg_no_foreign_object() -> None:
     """Regression guard: SVG must not embed HTML via <foreignObject>."""
@@ -182,7 +187,7 @@ def test_svg_export_emits_text_per_glyph() -> None:
     # Each <text> carries the per-cell tile guarantee.
     assert text_count > 0
     # Spot-check the per-cell stretching attributes.
-    sample = re.search(r'<text [^>]*>', svg)
+    sample = re.search(r"<text [^>]*>", svg)
     assert sample is not None
     attrs = sample.group(0)
     assert 'textLength="' in attrs
@@ -198,7 +203,7 @@ def test_svg_export_emits_background_rects() -> None:
     box.id = "b0"
     c.add_shape(box)
     svg = export_svg(c)
-    assert '<rect ' in svg
+    assert "<rect " in svg
     assert 'fill="yellow"' in svg
 
 
@@ -219,8 +224,7 @@ def test_svg_export_empty_canvas(empty_canvas: Canvas) -> None:
 
 def test_svg_export_escapes_special_chars() -> None:
     c = Canvas()
-    box = BoxShape(Rect(0, 0, 12, 3), border=BorderStyle.LIGHT,
-                   text="<a&b>")
+    box = BoxShape(Rect(0, 0, 12, 3), border=BorderStyle.LIGHT, text="<a&b>")
     box.id = "b0"
     c.add_shape(box)
     svg = export_svg(c)
@@ -228,12 +232,13 @@ def test_svg_export_escapes_special_chars() -> None:
     assert "&lt;" in svg
     assert "&amp;" in svg
     # `<a&b>` isn't valid SVG; if it shows up unescaped, parsing breaks.
-    raw_text_chars = re.findall(r'>[^<]*<', svg)  # text between tags
+    raw_text_chars = re.findall(r">[^<]*<", svg)  # text between tags
     for chunk in raw_text_chars:
         assert "<a&b>" not in chunk
 
 
 # --- Presenterm export ---------------------------------------------------
+
 
 def test_presenterm_export_empty_canvas(empty_canvas: Canvas) -> None:
     assert export_presenterm(empty_canvas) == ""
@@ -257,9 +262,11 @@ def test_presenterm_export_leading_whitespace_preserved() -> None:
     # starts at col 5, so rows where only the right box has content will
     # have leading whitespace from the bounding box left (col 0).
     a = BoxShape(Rect(0, 3, 3, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
-    a.fg = "green"; a.id = "a"
+    a.fg = "green"
+    a.id = "a"
     b = BoxShape(Rect(5, 0, 4, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
-    b.fg = "red"; b.id = "b"
+    b.fg = "red"
+    b.id = "b"
     c.add_shape(a)
     c.add_shape(b)
     out = export_presenterm(c)
@@ -277,7 +284,7 @@ def test_presenterm_export_uses_css_color_names() -> None:
     box.id = "b0"
     c.add_shape(box)
     out = export_presenterm(c)
-    assert 'color: red' in out
+    assert "color: red" in out
     assert "bright_red" not in out
 
 
@@ -290,7 +297,7 @@ def test_presenterm_export_background_color() -> None:
     box.id = "b0"
     c.add_shape(box)
     out = export_presenterm(c)
-    assert 'color: dark_red; background-color: dark_blue' in out
+    assert "color: dark_red; background-color: dark_blue" in out
 
 
 def test_presenterm_export_escapes_special_chars() -> None:
@@ -308,14 +315,16 @@ def test_presenterm_export_unstyled_between_spans() -> None:
     """Unstyled content between styled runs is bare text inside the outer line span."""
     c = Canvas()
     a = BoxShape(Rect(0, 0, 3, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
-    a.fg = "red"; a.id = "a"
+    a.fg = "red"
+    a.id = "a"
     b = BoxShape(Rect(5, 0, 3, 1), border=BorderStyle.NONE, fill=FillStyle.FULL)
-    b.fg = "green"; b.id = "b"
+    b.fg = "green"
+    b.id = "b"
     c.add_shape(a)
     c.add_shape(b)
     out = export_presenterm(c)
     # The gap between the two boxes should be bare spaces between styled spans
-    assert '</span>  <span ' in out
+    assert "</span>  <span " in out
     # And the whole row is wrapped in an outer <span>...</span>
     line = out.split("\n")[0].rstrip("\\")
     assert line.startswith("<span><span ")

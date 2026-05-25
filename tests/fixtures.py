@@ -12,8 +12,14 @@ from palaterm.canvas import Canvas
 from palaterm.connectors import Anchor, Connector, Side
 from palaterm.geometry import Point, Rect
 from palaterm.models import (
-    BorderStyle, BoxShape, EndingStyle, FillStyle, HAlign, LineShape,
-    LineStyle, VAlign,
+    BorderStyle,
+    BoxShape,
+    EndingStyle,
+    FillStyle,
+    HAlign,
+    LineShape,
+    LineStyle,
+    VAlign,
 )
 
 
@@ -30,8 +36,13 @@ def build_fixed_canvas() -> Canvas:
     """
     canvas = Canvas()
 
-    border_cycle = [BorderStyle.LIGHT, BorderStyle.HEAVY, BorderStyle.DOUBLE,
-                    BorderStyle.ROUNDED, BorderStyle.BRAILLE]
+    border_cycle = [
+        BorderStyle.LIGHT,
+        BorderStyle.HEAVY,
+        BorderStyle.DOUBLE,
+        BorderStyle.ROUNDED,
+        BorderStyle.BRAILLE,
+    ]
     fill_cycle = [FillStyle.NONE, FillStyle.LIGHT, FillStyle.MEDIUM]
     halign_cycle = [HAlign.LEFT, HAlign.CENTER, HAlign.RIGHT]
     valign_cycle = [VAlign.TOP, VAlign.MIDDLE, VAlign.BOTTOM]
@@ -57,7 +68,8 @@ def build_fixed_canvas() -> Canvas:
         a = Point(5 + (i * 17) % 180, 2 + (i * 7) % 50)
         b = Point(10 + (i * 23) % 180, 5 + (i * 11) % 50)
         line = LineShape(
-            a, b,
+            a,
+            b,
             border=BorderStyle.BRAILLE if i % 3 == 0 else BorderStyle.LIGHT,
             line_style=LineStyle.STRAIGHT if i % 2 else LineStyle.ORTHOGONAL,
             start_ending=EndingStyle.ARROW if i % 5 == 0 else EndingStyle.NONE,
@@ -73,18 +85,39 @@ def build_fixed_canvas() -> Canvas:
 
     for sid, lf, tf, rf, bf in [
         ("s04", 106.0, 1.0, 113.42105263157896, 8.875),
-        ("s09", 80.5,  10.5, 92.66666666666667, 17.625),
+        ("s09", 80.5, 10.5, 92.66666666666667, 17.625),
         ("s14", 54.25, 19.0, 65.33333333333333, 26.5),
     ]:
         box = next(s for s in canvas.shapes if s.id == sid)
         assert isinstance(box, BoxShape)
         box.resize_f(lf, tf, rf, bf)
 
-    canvas.connector_mgr.add(Connector(
-        line_id="s30", anchor=Anchor.START, target_id="s00", side=Side.RIGHT, ratio=1/3))
-    canvas.connector_mgr.add(Connector(
-        line_id="s31", anchor=Anchor.END, target_id="s05", side=Side.TOP, ratio=2/7))
-    canvas.connector_mgr.add(Connector(
-        line_id="s32", anchor=Anchor.START, target_id="s10", side=Side.BOTTOM, ratio=5/9))
+    canvas.connector_mgr.add(
+        Connector(
+            line_id="s30",
+            anchor=Anchor.START,
+            target_id="s00",
+            side=Side.RIGHT,
+            ratio=1 / 3,
+        )
+    )
+    canvas.connector_mgr.add(
+        Connector(
+            line_id="s31",
+            anchor=Anchor.END,
+            target_id="s05",
+            side=Side.TOP,
+            ratio=2 / 7,
+        )
+    )
+    canvas.connector_mgr.add(
+        Connector(
+            line_id="s32",
+            anchor=Anchor.START,
+            target_id="s10",
+            side=Side.BOTTOM,
+            ratio=5 / 9,
+        )
+    )
 
     return canvas

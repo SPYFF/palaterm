@@ -21,7 +21,6 @@ from ..geometry import Point, Rect
 from ..models import BorderStyle, BoxShape, LineShape, RectShape, Shape
 from ..models.line import LineRouting
 
-
 # ---- Commit results --------------------------------------------------------
 
 
@@ -67,13 +66,25 @@ class RectSelectCommit(GestureCommit):
 
 
 class Gesture(Protocol):
-    def update(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> None: ...
+    def update(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> None: ...
 
-    def commit(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> GestureCommit | None: ...
+    def commit(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> GestureCommit | None: ...
 
     def dirty_bounds(self, canvas: Any) -> list[Rect]: ...
 
@@ -90,9 +101,15 @@ class MoveGesture:
         self._origin = start
         self._last = start
 
-    def update(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> None:
+    def update(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> None:
         dcol = col - self._last.col
         drow = row - self._last.row
         if dcol == 0 and drow == 0:
@@ -108,16 +125,24 @@ class MoveGesture:
                 if not isinstance(line, LineShape):
                     continue
                 if conn.anchor == Anchor.START:
-                    line.follow_anchor("start", Point(line.start.col + dcol,
-                                                      line.start.row + drow))
+                    line.follow_anchor(
+                        "start", Point(line.start.col + dcol, line.start.row + drow)
+                    )
                 else:
-                    line.follow_anchor("end", Point(line.end.col + dcol,
-                                                    line.end.row + drow))
+                    line.follow_anchor(
+                        "end", Point(line.end.col + dcol, line.end.row + drow)
+                    )
         self._last = Point(col, row)
 
-    def commit(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> GestureCommit | None:
+    def commit(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> GestureCommit | None:
         # ``update`` already drove the last tick; the total delta is from the
         # original mouse-down to the current tracked position.
         dcol = self._last.col - self._origin.col
@@ -138,9 +163,14 @@ class MoveGesture:
 class ResizeGesture:
     """Drag a non-line resize handle (Box corner/edge)."""
 
-    def __init__(self, shape: Shape, handle: Any, anchor: Point | None,
-                 anchor_f: tuple[float, float] | None,
-                 old_attrs: dict[str, Any]) -> None:
+    def __init__(
+        self,
+        shape: Shape,
+        handle: Any,
+        anchor: Point | None,
+        anchor_f: tuple[float, float] | None,
+        old_attrs: dict[str, Any],
+    ) -> None:
         self._shape = shape
         self._handle = handle
         self._anchor = anchor
@@ -151,27 +181,48 @@ class ResizeGesture:
     def shape(self) -> Shape:
         return self._shape
 
-    def update(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> None:
+    def update(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> None:
         from . import Handle
 
         shape = self._shape
         handle = self._handle
-        if (isinstance(shape, BoxShape) and shape.border == BorderStyle.BRAILLE
-                and self._anchor_f is not None
-                and pointer_x is not None and pointer_y is not None):
+        if (
+            isinstance(shape, BoxShape)
+            and shape.border == BorderStyle.BRAILLE
+            and self._anchor_f is not None
+            and pointer_x is not None
+            and pointer_y is not None
+        ):
             ax, ay = self._anchor_f
             match handle:
-                case Handle.TOP_LEFT | Handle.TOP_RIGHT | Handle.BOT_LEFT | Handle.BOT_RIGHT:
+                case (
+                    Handle.TOP_LEFT
+                    | Handle.TOP_RIGHT
+                    | Handle.BOT_LEFT
+                    | Handle.BOT_RIGHT
+                ):
                     shape.resize_f(pointer_x, pointer_y, ax, ay)
                 case Handle.TOP_MID | Handle.BOT_MID:
-                    lf, _, rf, _ = shape.rect_f if shape.rect_f else (
-                        shape.bound.left, 0, shape.bound.right, 0)
+                    lf, _, rf, _ = (
+                        shape.rect_f
+                        if shape.rect_f
+                        else (shape.bound.left, 0, shape.bound.right, 0)
+                    )
                     shape.resize_f(lf, pointer_y, rf, ay)
                 case Handle.MID_LEFT | Handle.MID_RIGHT:
-                    _, tf, _, bf = shape.rect_f if shape.rect_f else (
-                        0, shape.bound.top, 0, shape.bound.bottom)
+                    _, tf, _, bf = (
+                        shape.rect_f
+                        if shape.rect_f
+                        else (0, shape.bound.top, 0, shape.bound.bottom)
+                    )
                     shape.resize_f(pointer_x, tf, ax, bf)
                 case _:
                     return
@@ -179,19 +230,34 @@ class ResizeGesture:
             anchor = self._anchor
             b = shape.bound
             match handle:
-                case Handle.TOP_LEFT | Handle.TOP_RIGHT | Handle.BOT_LEFT | Handle.BOT_RIGHT:
+                case (
+                    Handle.TOP_LEFT
+                    | Handle.TOP_RIGHT
+                    | Handle.BOT_LEFT
+                    | Handle.BOT_RIGHT
+                ):
                     new_rect = Rect.from_points(Point(col, row), anchor)
                 case Handle.TOP_MID | Handle.BOT_MID:
-                    new_rect = Rect.from_points(Point(b.left, row), Point(b.right, anchor.row))
+                    new_rect = Rect.from_points(
+                        Point(b.left, row), Point(b.right, anchor.row)
+                    )
                 case Handle.MID_LEFT | Handle.MID_RIGHT:
-                    new_rect = Rect.from_points(Point(col, b.top), Point(anchor.col, b.bottom))
+                    new_rect = Rect.from_points(
+                        Point(col, b.top), Point(anchor.col, b.bottom)
+                    )
                 case _:
                     return
             shape.resize(new_rect)
 
-    def commit(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> GestureCommit | None:
+    def commit(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> GestureCommit | None:
         self.update(col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y)
         return ResizeCommit(self._shape, self._old_attrs)
 
@@ -211,8 +277,7 @@ class LineHandleGesture:
     the user is hovering it.
     """
 
-    def __init__(self, line: LineShape, handle: Any,
-                 old_attrs: dict[str, Any]) -> None:
+    def __init__(self, line: LineShape, handle: Any, old_attrs: dict[str, Any]) -> None:
         self._line = line
         self._handle = handle
         self._old_attrs = old_attrs
@@ -222,9 +287,15 @@ class LineHandleGesture:
     def shape(self) -> Shape:
         return self._line
 
-    def update(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> None:
+    def update(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> None:
         from . import Handle
 
         line = self._line
@@ -243,9 +314,15 @@ class LineHandleGesture:
             line.end_side = side_name
             line.move_anchor("end", pt)
 
-    def commit(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> GestureCommit | None:
+    def commit(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> GestureCommit | None:
         from . import Handle
 
         self.update(col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y)
@@ -253,8 +330,9 @@ class LineHandleGesture:
         anchor = Anchor.START if self._handle == Handle.LINE_START else Anchor.END
         snap = find_snap(col, row, canvas.shapes, exclude_id=line.id)
         if snap:
-            canvas.connector_mgr.add(Connector(line.id, anchor, snap.target_id,
-                                                snap.side, snap.ratio))
+            canvas.connector_mgr.add(
+                Connector(line.id, anchor, snap.target_id, snap.side, snap.ratio)
+            )
         else:
             canvas.connector_mgr.remove_by_line_anchor(line.id, anchor)
         self.snap_target = None
@@ -263,7 +341,9 @@ class LineHandleGesture:
     def dirty_bounds(self, canvas: Any) -> list[Rect]:
         bounds: list[Rect] = [self._line.bound]
         if self.snap_target is not None:
-            target = next((s for s in canvas.shapes if s.id == self.snap_target.target_id), None)
+            target = next(
+                (s for s in canvas.shapes if s.id == self.snap_target.target_id), None
+            )
             if target is not None:
                 bounds.append(target.bound)
         return bounds
@@ -272,8 +352,7 @@ class LineHandleGesture:
 class EdgeDragGesture:
     """Slide an interior segment of an orthogonal multi-segment line."""
 
-    def __init__(self, line: LineShape, edge_index: int,
-                 before: LineRouting) -> None:
+    def __init__(self, line: LineShape, edge_index: int, before: LineRouting) -> None:
         self._line = line
         self._edge_index = edge_index
         self._before = before
@@ -282,9 +361,15 @@ class EdgeDragGesture:
     def line(self) -> LineShape:
         return self._line
 
-    def update(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> None:
+    def update(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> None:
         # Restore the mouse-down snapshot first so move_edge operates on the
         # original topology — without this, reduce-induced collapses drift the
         # edge index between ticks.
@@ -292,9 +377,15 @@ class EdgeDragGesture:
         line.routing = self._before
         line.move_edge(self._edge_index, Point(col, row))
 
-    def commit(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> GestureCommit | None:
+    def commit(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> GestureCommit | None:
         if self._line.routing == self._before:
             return None
         return EdgeDragCommit(self._line, self._before)
@@ -311,28 +402,54 @@ class RectSelectGesture:
     based on ``mode`` (full / partial containment).
     """
 
-    def __init__(self, host: Any, start: Point,
-                 start_f: tuple[float, float] | None, modifier: str) -> None:
+    def __init__(
+        self,
+        host: Any,
+        start: Point,
+        start_f: tuple[float, float] | None,
+        modifier: str,
+    ) -> None:
         self._host = host
         self._start = start
         self._start_f = start_f
         self._modifier = modifier
 
-    def update(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> None:
+    def update(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> None:
         self._host.selection_rect = Rect.from_points(self._start, Point(col, row))
-        if self._start_f is not None and pointer_x is not None and pointer_y is not None:
+        if (
+            self._start_f is not None
+            and pointer_x is not None
+            and pointer_y is not None
+        ):
             sx, sy = self._start_f
-            self._host.selection_rect_f = (min(sx, pointer_x), min(sy, pointer_y),
-                                           max(sx, pointer_x), max(sy, pointer_y))
+            self._host.selection_rect_f = (
+                min(sx, pointer_x),
+                min(sy, pointer_y),
+                max(sx, pointer_x),
+                max(sy, pointer_y),
+            )
 
-    def commit(self, col: int, row: int, canvas: Any, *,
-               pointer_x: float | None = None,
-               pointer_y: float | None = None) -> GestureCommit | None:
+    def commit(
+        self,
+        col: int,
+        row: int,
+        canvas: Any,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> GestureCommit | None:
         rect = Rect.from_points(self._start, Point(col, row))
-        return RectSelectCommit(rect if (rect.width > 1 or rect.height > 1) else None,
-                                self._modifier)
+        return RectSelectCommit(
+            rect if (rect.width > 1 or rect.height > 1) else None, self._modifier
+        )
 
     def dirty_bounds(self, canvas: Any) -> list[Rect]:
         rect = self._host.selection_rect

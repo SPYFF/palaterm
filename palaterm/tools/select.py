@@ -14,8 +14,13 @@ from typing import Any
 from ..geometry import Point, Rect
 from ..models import BorderStyle, BoxShape, LineShape, Shape
 from .gestures import (
-    EdgeDragGesture, Gesture, GestureCommit, LineHandleGesture,
-    MoveGesture, RectSelectGesture, ResizeGesture,
+    EdgeDragGesture,
+    Gesture,
+    GestureCommit,
+    LineHandleGesture,
+    MoveGesture,
+    RectSelectGesture,
+    ResizeGesture,
 )
 from .overlays import EdgeHover, Overlay, SnapHighlight
 
@@ -60,7 +65,11 @@ class SelectTool:
 
     @property
     def _drag_start(self) -> Point | None:
-        return self.selection_anchor if isinstance(self.gesture, RectSelectGesture) else None
+        return (
+            self.selection_anchor
+            if isinstance(self.gesture, RectSelectGesture)
+            else None
+        )
 
     @property
     def _modifier(self) -> str:
@@ -68,8 +77,17 @@ class SelectTool:
 
     # ---- Mouse handling ----------------------------------------------------
 
-    def on_mouse_down(self, col: int, row: int, canvas, *, ctrl: bool = False, alt: bool = False,
-                      pointer_x: float | None = None, pointer_y: float | None = None) -> Shape | None:
+    def on_mouse_down(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        ctrl: bool = False,
+        alt: bool = False,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> Shape | None:
         from . import handle_at
 
         # Resize handle on a selected shape.
@@ -113,7 +131,11 @@ class SelectTool:
         self.selection_modifier = modifier
         self.selection_rect = None
         self.selection_rect_f = None
-        start_f = (pointer_x, pointer_y) if pointer_x is not None and pointer_y is not None else None
+        start_f = (
+            (pointer_x, pointer_y)
+            if pointer_x is not None and pointer_y is not None
+            else None
+        )
         self.gesture = RectSelectGesture(self, Point(col, row), start_f, modifier)
         return self.selected[0] if self.selected else None
 
@@ -121,7 +143,11 @@ class SelectTool:
         from . import Handle
 
         if isinstance(shape, LineShape):
-            old_attrs = {"start": shape.start, "end": shape.end, "routing": shape.routing}
+            old_attrs = {
+                "start": shape.start,
+                "end": shape.end,
+                "routing": shape.routing,
+            }
             return LineHandleGesture(shape, handle, old_attrs)
 
         b = shape.bound
@@ -138,22 +164,34 @@ class SelectTool:
         anchor = anchor_map.get(handle)
 
         anchor_f: tuple[float, float] | None = None
-        if (isinstance(shape, BoxShape) and shape.border == BorderStyle.BRAILLE
-                and shape.rect_f is not None):
+        if (
+            isinstance(shape, BoxShape)
+            and shape.border == BorderStyle.BRAILLE
+            and shape.rect_f is not None
+        ):
             lf, tf, rf, bf = shape.rect_f
             anchor_f_map = {
-                Handle.TOP_LEFT: (rf, bf), Handle.TOP_MID: (lf, bf), Handle.TOP_RIGHT: (lf, bf),
-                Handle.MID_LEFT: (rf, tf), Handle.MID_RIGHT: (lf, tf),
-                Handle.BOT_LEFT: (rf, tf), Handle.BOT_MID: (lf, tf), Handle.BOT_RIGHT: (lf, tf),
+                Handle.TOP_LEFT: (rf, bf),
+                Handle.TOP_MID: (lf, bf),
+                Handle.TOP_RIGHT: (lf, bf),
+                Handle.MID_LEFT: (rf, tf),
+                Handle.MID_RIGHT: (lf, tf),
+                Handle.BOT_LEFT: (rf, tf),
+                Handle.BOT_MID: (lf, tf),
+                Handle.BOT_RIGHT: (lf, tf),
             }
             anchor_f = anchor_f_map.get(handle)
 
         old_attrs = {"rect": shape.rect}  # type: ignore[attr-defined]
         return ResizeGesture(shape, handle, anchor, anchor_f, old_attrs)
 
-    def update_hover(self, col: int, row: int,
-                     pointer_x: float | None = None,
-                     pointer_y: float | None = None) -> tuple[LineShape | None, int | None, bool]:
+    def update_hover(
+        self,
+        col: int,
+        row: int,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> tuple[LineShape | None, int | None, bool]:
         """Recompute edge-hover state for selected lines.
 
         Returns (line, edge_index, whole_line) tuple matching the new state.
@@ -189,22 +227,40 @@ class SelectTool:
         self.hover_edge_whole = new_whole
         return new_line, new_index, new_whole
 
-    def on_mouse_drag(self, col: int, row: int, canvas, *,
-                      pointer_x: float | None = None, pointer_y: float | None = None) -> None:
+    def on_mouse_drag(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> None:
         if self.gesture is not None:
-            self.gesture.update(col, row, canvas,
-                                pointer_x=pointer_x, pointer_y=pointer_y)
+            self.gesture.update(
+                col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y
+            )
 
-    def on_mouse_up(self, col: int, row: int, canvas, *, ctrl: bool = False, alt: bool = False,
-                    pointer_x: float | None = None, pointer_y: float | None = None) -> GestureCommit | None:
+    def on_mouse_up(
+        self,
+        col: int,
+        row: int,
+        canvas,
+        *,
+        ctrl: bool = False,
+        alt: bool = False,
+        pointer_x: float | None = None,
+        pointer_y: float | None = None,
+    ) -> GestureCommit | None:
         from .gestures import RectSelectCommit
 
         gesture = self.gesture
         self.gesture = None
         if gesture is None:
             return None
-        commit = gesture.commit(col, row, canvas,
-                                pointer_x=pointer_x, pointer_y=pointer_y)
+        commit = gesture.commit(
+            col, row, canvas, pointer_x=pointer_x, pointer_y=pointer_y
+        )
         if isinstance(commit, RectSelectCommit):
             self._apply_rect_select(commit, canvas, ctrl=ctrl, alt=alt)
             self.selection_rect = None
@@ -214,8 +270,9 @@ class SelectTool:
             return None
         return commit
 
-    def _apply_rect_select(self, commit: Any, canvas: Any, *,
-                           ctrl: bool, alt: bool) -> None:
+    def _apply_rect_select(
+        self, commit: Any, canvas: Any, *, ctrl: bool, alt: bool
+    ) -> None:
         rect = commit.rect
         if rect is None:
             return
@@ -248,7 +305,11 @@ class SelectTool:
         if snap is not None:
             out.append(SnapHighlight(target_id=snap.target_id, side=snap.side))
         if self.hover_edge_line is not None:
-            out.append(EdgeHover(line=self.hover_edge_line,
-                                  edge_index=self.hover_edge_index,
-                                  whole=self.hover_edge_whole))
+            out.append(
+                EdgeHover(
+                    line=self.hover_edge_line,
+                    edge_index=self.hover_edge_index,
+                    whole=self.hover_edge_whole,
+                )
+            )
         return out

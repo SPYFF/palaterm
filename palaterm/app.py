@@ -12,18 +12,47 @@ from textual.binding import Binding
 from textual.containers import Vertical
 from textual.events import MouseUp
 
-from .commands import AddShape, AddShapes, CommandHistory, MoveLineEdge, MoveShapes, RemoveShapes, TransformShapes
+from .commands import (
+    AddShape,
+    AddShapes,
+    CommandHistory,
+    MoveLineEdge,
+    MoveShapes,
+    RemoveShapes,
+    TransformShapes,
+)
 from .controllers import SidebarView, ToolController
+from .exporters import export_html, export_presenterm, export_svg
+from .models import (
+    BorderStyle,
+    BoxShape,
+    CharSet,
+    HAlign,
+    LineShape,
+    VAlign,
+)
+from .serialization import load_canvas, save_canvas
 from .sidebar_state import compute_sidebar_state
 from .style_application import apply_attribute_change
-from .serialization import load_canvas, save_canvas
-from .exporters import export_html, export_presenterm, export_svg
-from .models import BorderStyle, BoxShape, CharSet, EndingStyle, FillStyle, HAlign, LineShape, LineStyle, VAlign
 from .tools import LineTool, RectangleTool, SelectMode, SelectTool, TextTool, ToolType
 from .widgets import (
-    AlignCell, BorderStylePanel, CanvasWidget, ColorPanel, ConfirmModal, EndingButton,
-    ExportPanel, FilePathModal, FillPanel, LayerPanel, LineEndingsPanel, LineStylePanel,
-    SelectModePanel, ShapeAlignPanel, StatusBar, TextAlignPanel, ToolPicker,
+    AlignCell,
+    BorderStylePanel,
+    CanvasWidget,
+    ColorPanel,
+    ConfirmModal,
+    EndingButton,
+    ExportPanel,
+    FilePathModal,
+    FillPanel,
+    LayerPanel,
+    LineEndingsPanel,
+    LineStylePanel,
+    SelectModePanel,
+    ShapeAlignPanel,
+    StatusBar,
+    TextAlignPanel,
+    ToolPicker,
 )
 
 
@@ -118,10 +147,18 @@ class PalatermApp(App):
         Binding("ctrl+shift+s", "save_as", "Save As", priority=True),
         Binding("ctrl+o", "open_file", "Open", priority=True),
         Binding("ctrl+u", "toggle_charset", "Charset", priority=True),
-        Binding("right_square_bracket", "layer('bring_forward')", "Forward", priority=True),
-        Binding("left_square_bracket", "layer('send_backward')", "Backward", priority=True),
-        Binding("right_curly_bracket", "layer('bring_to_front')", "To Front", priority=True),
-        Binding("left_curly_bracket", "layer('send_to_back')", "To Back", priority=True),
+        Binding(
+            "right_square_bracket", "layer('bring_forward')", "Forward", priority=True
+        ),
+        Binding(
+            "left_square_bracket", "layer('send_backward')", "Backward", priority=True
+        ),
+        Binding(
+            "right_curly_bracket", "layer('bring_to_front')", "To Front", priority=True
+        ),
+        Binding(
+            "left_curly_bracket", "layer('send_to_back')", "To Back", priority=True
+        ),
         Binding("q", "quit", "Quit", priority=True),
         Binding("a", "cycle_halign", "H-Align", priority=True),
         Binding("A", "cycle_valign", "V-Align", priority=True),
@@ -189,27 +226,35 @@ class PalatermApp(App):
         self.history.push(cmd)
 
     def on_canvas_widget_shape_moved(self, event: CanvasWidget.ShapeMoved) -> None:
-        cmd = MoveShapes(event.shapes, event.dcol, event.drow, self.canvas_widget.canvas)
+        cmd = MoveShapes(
+            event.shapes, event.dcol, event.drow, self.canvas_widget.canvas
+        )
         self.history.push(cmd)
 
     def on_canvas_widget_shape_resized(self, event: CanvasWidget.ShapeResized) -> None:
         cmd = TransformShapes([(event.shape, event.old_attrs)])
         self.history.push(cmd)
 
-    def on_canvas_widget_line_edge_moved(self, event: CanvasWidget.LineEdgeMoved) -> None:
+    def on_canvas_widget_line_edge_moved(
+        self, event: CanvasWidget.LineEdgeMoved
+    ) -> None:
         cmd = MoveLineEdge(event.commit.line, event.commit.before)
         self.history.push(cmd)
 
     def on_tool_picker_tool_selected(self, event: ToolPicker.ToolSelected) -> None:
         self._switch_tool(event.tool_type)
 
-    def on_select_mode_panel_mode_changed(self, event: SelectModePanel.ModeChanged) -> None:
+    def on_select_mode_panel_mode_changed(
+        self, event: SelectModePanel.ModeChanged
+    ) -> None:
         tool = self.canvas_widget.tool
         if isinstance(tool, SelectTool):
             tool.mode = event.mode
         self._update_panels()
 
-    def on_border_style_panel_style_changed(self, event: BorderStylePanel.StyleChanged) -> None:
+    def on_border_style_panel_style_changed(
+        self, event: BorderStylePanel.StyleChanged
+    ) -> None:
         self._tool_ctrl.border_style = event.style
         cw = self.canvas_widget
         tool = cw.tool
@@ -222,8 +267,10 @@ class PalatermApp(App):
         elif isinstance(tool, SelectTool):
             # NONE only makes sense on boxes — lines can't render without a border.
             targets = [
-                s for s in tool.selected
-                if isinstance(s, BoxShape) or (isinstance(s, LineShape) and not none_style)
+                s
+                for s in tool.selected
+                if isinstance(s, BoxShape)
+                or (isinstance(s, LineShape) and not none_style)
             ]
             if apply_attribute_change(self.history, targets, "border", event.style):
                 cw.refresh()
@@ -241,7 +288,9 @@ class PalatermApp(App):
                 cw.refresh()
         self._update_panels()
 
-    def on_line_style_panel_style_changed(self, event: LineStylePanel.StyleChanged) -> None:
+    def on_line_style_panel_style_changed(
+        self, event: LineStylePanel.StyleChanged
+    ) -> None:
         self._tool_ctrl.line_style = event.style
         cw = self.canvas_widget
         tool = cw.tool
@@ -252,9 +301,14 @@ class PalatermApp(App):
             # Switching style invalidates any edge-edited routing — snapshot
             # routing alongside line_style so undo restores both atomically.
             applied = apply_attribute_change(
-                self.history, targets, "line_style", event.style,
+                self.history,
+                targets,
+                "line_style",
+                event.style,
                 extra_snapshot_attrs=("routing",),
-                after_set=lambda s: s.clear_custom_routing() if isinstance(s, LineShape) else None,
+                after_set=lambda s: (
+                    s.clear_custom_routing() if isinstance(s, LineShape) else None
+                ),
             )
             if applied:
                 cw.refresh()
@@ -288,7 +342,9 @@ class PalatermApp(App):
         cw.refresh()
         self._update_panels()
 
-    def on_shape_align_panel_align_clicked(self, event: ShapeAlignPanel.AlignClicked) -> None:
+    def on_shape_align_panel_align_clicked(
+        self, event: ShapeAlignPanel.AlignClicked
+    ) -> None:
         cw = self.canvas_widget
         if not isinstance(cw.tool, SelectTool) or len(cw.tool.selected) < 2:
             return
@@ -360,7 +416,12 @@ class PalatermApp(App):
     def action_set_tool(self, tool: str) -> None:
         if self.canvas_widget._editing:
             return
-        mapping = {"select": ToolType.SELECT, "rect": ToolType.RECTANGLE, "text": ToolType.TEXT, "line": ToolType.LINE}
+        mapping = {
+            "select": ToolType.SELECT,
+            "rect": ToolType.RECTANGLE,
+            "text": ToolType.TEXT,
+            "line": ToolType.LINE,
+        }
         self._switch_tool(mapping[tool])
 
     def action_delete_shape(self) -> None:
@@ -412,7 +473,9 @@ class PalatermApp(App):
     def action_export(self) -> None:
         self._copy_export("text")
 
-    def on_export_panel_export_requested(self, event: ExportPanel.ExportRequested) -> None:
+    def on_export_panel_export_requested(
+        self, event: ExportPanel.ExportRequested
+    ) -> None:
         self._copy_export(event.format)
 
     def _copy_export(self, fmt: str) -> None:
@@ -474,20 +537,27 @@ class PalatermApp(App):
         def on_dismiss(path: str | None) -> None:
             if path:
                 self._do_open(path)
+
         self.push_screen(FilePathModal("Open file:", self._file_path or ""), on_dismiss)
 
     def _prompt_save(self) -> None:
         def on_dismiss(path: str | None) -> None:
             if path:
                 self._do_save(path)
-        self.push_screen(FilePathModal("Save as:", self._file_path or "drawing.palaterm"), on_dismiss)
+
+        self.push_screen(
+            FilePathModal("Save as:", self._file_path or "drawing.palaterm"), on_dismiss
+        )
 
     def _do_save(self, path: str) -> None:
         from pathlib import Path
+
         if not path.lower().endswith(".palaterm"):
             path = path + ".palaterm"
         try:
-            save_canvas(self.canvas_widget.canvas, Path(path), self.canvas_widget.charset)
+            save_canvas(
+                self.canvas_widget.canvas, Path(path), self.canvas_widget.charset
+            )
             self._file_path = path
             self.history.mark_saved()
             self.notify(f"Saved: {path}", timeout=2)
@@ -497,6 +567,7 @@ class PalatermApp(App):
 
     def _do_open(self, path: str) -> None:
         from pathlib import Path
+
         try:
             canvas, charset = load_canvas(Path(path))
         except FileNotFoundError:
@@ -506,8 +577,9 @@ class PalatermApp(App):
             self.notify(f"Permission denied: {path}", severity="error", timeout=3)
             return
         except json.JSONDecodeError as e:
-            self.notify(f"Not a valid .palaterm file ({e.msg})",
-                        severity="error", timeout=3)
+            self.notify(
+                f"Not a valid .palaterm file ({e.msg})", severity="error", timeout=3
+            )
             return
         except OSError as e:
             self.notify(f"Open failed: {e}", severity="error", timeout=3)
@@ -575,7 +647,9 @@ class PalatermApp(App):
             self._update_status()
 
     def action_copy(self) -> None:
-        import copy, uuid
+        import copy
+        import uuid
+
         cw = self.canvas_widget
         if not isinstance(cw.tool, SelectTool) or not cw.tool.selected:
             return
@@ -598,8 +672,8 @@ class PalatermApp(App):
         self._update_status()
 
     def action_paste(self) -> None:
-        import copy, uuid
-        from .connectors import Connector
+        import copy
+        import uuid
 
         if not self._clipboard:
             return
@@ -634,8 +708,11 @@ class PalatermApp(App):
 
     # --- Internal ---
 
-    def _remap_connectors(self, canvas, copied_orig_ids: set[str], id_map: dict[str, str]):
-        """Create new connectors for lines whose targets are both in the copied group."""
+    def _remap_connectors(
+        self, canvas, copied_orig_ids: set[str], id_map: dict[str, str]
+    ):
+        """Create new connectors for lines whose targets are both
+        in the copied group."""
         from .connectors import Connector
 
         new_connectors: list[Connector] = []
@@ -645,14 +722,18 @@ class PalatermApp(App):
             for conn in canvas.connector_mgr.get_by_line(orig_id):
                 if conn.target_id not in copied_orig_ids:
                     continue
-                target_stored_id = next(s.id for oid, s in self._clipboard if oid == conn.target_id)
-                new_connectors.append(Connector(
-                    line_id=id_map[stored.id],
-                    anchor=conn.anchor,
-                    target_id=id_map[target_stored_id],
-                    side=conn.side,
-                    ratio=conn.ratio,
-                ))
+                target_stored_id = next(
+                    s.id for oid, s in self._clipboard if oid == conn.target_id
+                )
+                new_connectors.append(
+                    Connector(
+                        line_id=id_map[stored.id],
+                        anchor=conn.anchor,
+                        target_id=id_map[target_stored_id],
+                        side=conn.side,
+                        ratio=conn.ratio,
+                    )
+                )
         return new_connectors
 
     def _update_panels(self) -> None:
@@ -681,6 +762,7 @@ class PalatermApp(App):
 
         center = ""
         from .tools import DrawTool
+
         if isinstance(cw.tool, DrawTool) and cw.tool._start and cw.tool._shape:
             b = cw.tool._shape.bound
             s = cw.tool._start
@@ -697,6 +779,7 @@ class PalatermApp(App):
                 center = f"{left_b},{top_b} ({w}×{h})"
 
         from pathlib import Path
+
         charset_indicator = "U" if cw.charset == CharSet.UNICODE else "A"
         count = len(cw.canvas.shapes)
 
@@ -723,6 +806,7 @@ class PalatermApp(App):
         sequences on Windows where output goes through a WriterThread).
         """
         from pathlib import Path
+
         if self._file_path:
             name = Path(self._file_path).name
         else:
@@ -752,6 +836,7 @@ class PalatermApp(App):
 def main() -> None:
     try:
         from importlib.metadata import version as _pkg_version
+
         version = _pkg_version("palaterm")
     except Exception:
         version = "unknown"
@@ -761,11 +846,15 @@ def main() -> None:
         description="A TUI drawing application.",
     )
     parser.add_argument(
-        "file", nargs="?",
+        "file",
+        nargs="?",
         help="path to a .palaterm file to open at startup",
     )
     parser.add_argument(
-        "--version", "-V", action="version", version=f"palaterm {version}",
+        "--version",
+        "-V",
+        action="version",
+        version=f"palaterm {version}",
     )
     args = parser.parse_args()
 

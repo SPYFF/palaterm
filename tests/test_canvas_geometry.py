@@ -10,8 +10,11 @@ preserves the shape coord at top-left.
 from __future__ import annotations
 
 from palaterm.canvas_geometry import (
-    SHAPE_PADDING, anchor_scroll_after_resize, compute_virtual_extent,
-    grow_terminal_floor, shape_bounding_box,
+    SHAPE_PADDING,
+    anchor_scroll_after_resize,
+    compute_virtual_extent,
+    grow_terminal_floor,
+    shape_bounding_box,
 )
 from palaterm.geometry import Rect
 from palaterm.models import BoxShape

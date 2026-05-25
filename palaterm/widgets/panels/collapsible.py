@@ -10,7 +10,8 @@ from textual.widgets import Static
 
 
 class _PanelHeader(Horizontal):
-    """Header row: triangle indicator on the left, centered title. Click toggles parent."""
+    """Header row: triangle indicator on the left, centered title.
+    Click toggles parent."""
 
     DEFAULT_CSS = """
     _PanelHeader {

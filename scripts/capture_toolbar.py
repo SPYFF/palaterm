@@ -7,6 +7,7 @@ sidebar layout without opening a terminal.
 
 Run: ``.venv/bin/python scripts/capture_toolbar.py``
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -24,11 +25,24 @@ async def main() -> None:
     async with app.run_test(size=(40, 42)) as pilot:
         await pilot.pause()
         from palaterm.widgets.panels import (
-            BorderStylePanel, LayerPanel, LineEndingsPanel, LineStylePanel,
-            SelectModePanel, ShapeAlignPanel, TextAlignPanel,
+            BorderStylePanel,
+            LayerPanel,
+            LineEndingsPanel,
+            LineStylePanel,
+            SelectModePanel,
+            ShapeAlignPanel,
+            TextAlignPanel,
         )
-        for cls in [SelectModePanel, BorderStylePanel, LineStylePanel,
-                    LineEndingsPanel, TextAlignPanel, ShapeAlignPanel, LayerPanel]:
+
+        for cls in [
+            SelectModePanel,
+            BorderStylePanel,
+            LineStylePanel,
+            LineEndingsPanel,
+            TextAlignPanel,
+            ShapeAlignPanel,
+            LayerPanel,
+        ]:
             app.query_one(cls).add_class("visible")
         await pilot.pause()
         await pilot.pause()

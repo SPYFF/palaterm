@@ -15,25 +15,64 @@ class CharSet(Enum):
 # lands here. Shapes should prefer producing semantically-correct ASCII directly.
 _UNICODE_TO_ASCII: dict[str, str] = {
     # Light box-drawing
-    "┌": "+", "┐": "+", "└": "+", "┘": "+", "─": "-", "│": "|",
+    "┌": "+",
+    "┐": "+",
+    "└": "+",
+    "┘": "+",
+    "─": "-",
+    "│": "|",
     # Heavy
-    "┏": "+", "┓": "+", "┗": "+", "┛": "+", "━": "=", "┃": "|",
+    "┏": "+",
+    "┓": "+",
+    "┗": "+",
+    "┛": "+",
+    "━": "=",
+    "┃": "|",
     # Double
-    "╔": "+", "╗": "+", "╚": "+", "╝": "+", "═": "=", "║": "|",
+    "╔": "+",
+    "╗": "+",
+    "╚": "+",
+    "╝": "+",
+    "═": "=",
+    "║": "|",
     # Rounded
-    "╭": "+", "╮": "+", "╰": "+", "╯": "+",
+    "╭": "+",
+    "╮": "+",
+    "╰": "+",
+    "╯": "+",
     # Crossings
-    "┼": "+", "├": "+", "┤": "+", "┬": "+", "┴": "+",
-    "╋": "+", "┣": "+", "┫": "+", "┳": "+", "┻": "+",
-    "╬": "+", "╠": "+", "╣": "+", "╦": "+", "╩": "+",
+    "┼": "+",
+    "├": "+",
+    "┤": "+",
+    "┬": "+",
+    "┴": "+",
+    "╋": "+",
+    "┣": "+",
+    "┫": "+",
+    "┳": "+",
+    "┻": "+",
+    "╬": "+",
+    "╠": "+",
+    "╣": "+",
+    "╦": "+",
+    "╩": "+",
     # Half-line (light)
-    "╴": "-", "╶": "-", "╵": "|", "╷": "|",
+    "╴": "-",
+    "╶": "-",
+    "╵": "|",
+    "╷": "|",
     # Half-line (heavy)
-    "╸": "=", "╺": "=", "╹": "|", "╻": "|",
+    "╸": "=",
+    "╺": "=",
+    "╹": "|",
+    "╻": "|",
     # Misc
-    "•": "*", "□": "#",
+    "•": "*",
+    "□": "#",
     # Fills
-    "█": "#", "▒": ":", "░": ".",
+    "█": "#",
+    "▒": ":",
+    "░": ".",
 }
 
 
@@ -50,14 +89,15 @@ def to_ascii(ch: str) -> str:
 # --- Braille rectangle rendering ---
 
 # Braille edge bits: which dots to light for each edge
-_TOP = (1 << 0) | (1 << 3)      # row 0
-_BOTTOM = (1 << 6) | (1 << 7)   # row 3
-_LEFT = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 6)   # col 0
+_TOP = (1 << 0) | (1 << 3)  # row 0
+_BOTTOM = (1 << 6) | (1 << 7)  # row 3
+_LEFT = (1 << 0) | (1 << 1) | (1 << 2) | (1 << 6)  # col 0
 _RIGHT = (1 << 3) | (1 << 4) | (1 << 5) | (1 << 7)  # col 1
 
 
-def braille_rect(left: int, top: int, right: int, bottom: int,
-                 charset: CharSet = CharSet.UNICODE) -> dict[tuple[int, int], str]:
+def braille_rect(
+    left: int, top: int, right: int, bottom: int, charset: CharSet = CharSet.UNICODE
+) -> dict[tuple[int, int], str]:
     """Render a rectangle border using braille edge characters.
 
     In ASCII mode, falls back to + corners, - and | edges.
@@ -85,7 +125,7 @@ def braille_rect(left: int, top: int, right: int, bottom: int,
 
     if charset == CharSet.ASCII:
         result: dict[tuple[int, int], str] = {}
-        for (col, row) in cells:
+        for col, row in cells:
             on_top = row == top
             on_bottom = row == bottom
             on_left = col == left
@@ -104,22 +144,32 @@ def braille_rect(left: int, top: int, right: int, bottom: int,
 
 # Braille dot index: (sub_x 0-1, sub_y 0-3) -> bit position
 _BRAILLE_DOT = {
-    (0, 0): 0, (1, 0): 3,
-    (0, 1): 1, (1, 1): 4,
-    (0, 2): 2, (1, 2): 5,
-    (0, 3): 6, (1, 3): 7,
+    (0, 0): 0,
+    (1, 0): 3,
+    (0, 1): 1,
+    (1, 1): 4,
+    (0, 2): 2,
+    (1, 2): 5,
+    (0, 3): 6,
+    (1, 3): 7,
 }
 
 
 def _to_braille_coord(c: float, scale: int) -> int:
-    """Map a float cell coord to a braille sub-cell index, flooring negatives correctly."""
+    """Map a float cell coord to a braille sub-cell index,
+    flooring negatives correctly."""
     base = math.floor(c)
     frac = c - base
     return base * scale + max(0, min(int(frac * scale), scale - 1))
 
 
-def braille_rect_precise(left_f: float, top_f: float, right_f: float, bottom_f: float,
-                         charset: CharSet = CharSet.UNICODE) -> dict[tuple[int, int], str]:
+def braille_rect_precise(
+    left_f: float,
+    top_f: float,
+    right_f: float,
+    bottom_f: float,
+    charset: CharSet = CharSet.UNICODE,
+) -> dict[tuple[int, int], str]:
     """Render a rectangle border using braille with sub-cell precision.
 
     Float coordinates map fractional parts to braille dots within cells:
@@ -127,10 +177,16 @@ def braille_rect_precise(left_f: float, top_f: float, right_f: float, bottom_f: 
     sub_y: quarters 0-3 mapped to dot rows 0-3
     """
     if charset == CharSet.ASCII:
-        return braille_rect(math.floor(left_f), math.floor(top_f),
-                            math.floor(right_f), math.floor(bottom_f), charset)
+        return braille_rect(
+            math.floor(left_f),
+            math.floor(top_f),
+            math.floor(right_f),
+            math.floor(bottom_f),
+            charset,
+        )
 
-    # Convert float coords to braille sub-pixel coords (2x per cell horizontal, 4x vertical)
+    # Convert float coords to braille sub-pixel coords
+    # (2x per cell horizontal, 4x vertical)
     bx0 = _to_braille_coord(left_f, 2)
     by0 = _to_braille_coord(top_f, 4)
     bx1 = _to_braille_coord(right_f, 2)

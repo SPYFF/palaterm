@@ -19,47 +19,46 @@ from .canvas import Canvas
 from .geometry import Rect
 from .models import CharSet, Shape
 
-
 _RICH_TO_CSS: dict[str, str] = {
     # Standard 8 — CSS recognizes these names.
-    "black":   "black",
-    "red":     "red",
-    "green":   "green",
-    "yellow":  "yellow",
-    "blue":    "blue",
+    "black": "black",
+    "red": "red",
+    "green": "green",
+    "yellow": "yellow",
+    "blue": "blue",
     "magenta": "magenta",
-    "cyan":    "cyan",
-    "white":   "white",
+    "cyan": "cyan",
+    "white": "white",
     # Bright 8 — CSS-name approximations. CSS has no `bright_*` palette,
     # so each variant maps to the visually-closest CSS named color.
-    "bright_black":   "gray",
-    "bright_red":     "tomato",
-    "bright_green":   "limegreen",
-    "bright_yellow":  "gold",
-    "bright_blue":    "royalblue",
+    "bright_black": "gray",
+    "bright_red": "tomato",
+    "bright_green": "limegreen",
+    "bright_yellow": "gold",
+    "bright_blue": "royalblue",
     "bright_magenta": "violet",
-    "bright_cyan":    "turquoise",
-    "bright_white":   "white",
+    "bright_cyan": "turquoise",
+    "bright_white": "white",
 }
 
 
 _RICH_TO_PRESENTERM: dict[str, str] = {
-    "black":          "black",
-    "red":            "dark_red",
-    "green":          "dark_green",
-    "yellow":         "dark_yellow",
-    "blue":           "dark_blue",
-    "magenta":        "dark_magenta",
-    "cyan":           "dark_cyan",
-    "white":          "white",
-    "bright_black":   "grey",
-    "bright_red":     "red",
-    "bright_green":   "green",
-    "bright_yellow":  "yellow",
-    "bright_blue":    "blue",
+    "black": "black",
+    "red": "dark_red",
+    "green": "dark_green",
+    "yellow": "dark_yellow",
+    "blue": "dark_blue",
+    "magenta": "dark_magenta",
+    "cyan": "dark_cyan",
+    "white": "white",
+    "bright_black": "grey",
+    "bright_red": "red",
+    "bright_green": "green",
+    "bright_yellow": "yellow",
+    "bright_blue": "blue",
     "bright_magenta": "magenta",
-    "bright_cyan":    "cyan",
-    "bright_white":   "white",
+    "bright_cyan": "cyan",
+    "bright_white": "white",
 }
 
 
@@ -79,11 +78,7 @@ def to_css(rich_name: str | None) -> str | None:
 
 def _escape(text: str) -> str:
     """Escape XML/HTML special characters."""
-    return (
-        text.replace("&", "&amp;")
-            .replace("<", "&lt;")
-            .replace(">", "&gt;")
-    )
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
 def _runs_for_row(
@@ -115,7 +110,9 @@ def _runs_for_row(
 
 
 def _bounded_grid(
-    canvas: Canvas, charset: CharSet, shapes: list[Shape] | None,
+    canvas: Canvas,
+    charset: CharSet,
+    shapes: list[Shape] | None,
 ) -> tuple[Rect, dict[tuple[int, int], tuple[str, str | None, str | None]]]:
     bound, cells = canvas.render_styled(shapes, charset)
     return bound, cells
@@ -139,8 +136,8 @@ def _bounded_grid(
 #     glyph occupies the row from y=0 down. Otherwise vertical bars like
 #     ``│`` don't span the full cell and leave gaps between rows.
 _SVG_FONT_SIZE = 14
-_SVG_CELL_W = 8.4    # ~0.6em — matches "0" advance in typical monospace
-_SVG_CELL_H = 14     # 1.0em — rows abut so vertical glyphs connect
+_SVG_CELL_W = 8.4  # ~0.6em — matches "0" advance in typical monospace
+_SVG_CELL_H = 14  # 1.0em — rows abut so vertical glyphs connect
 
 
 def _styled_pre_body(
@@ -157,9 +154,7 @@ def _styled_pre_body(
         chunks: list[str] = []
         # The run's start column is implicit in concatenation order — only
         # text/fg/bg matter for sequential <pre> output.
-        for _, run_text, fg, bg in _runs_for_row(
-            cells, row, bound.left, bound.right
-        ):
+        for _, run_text, fg, bg in _runs_for_row(cells, row, bound.left, bound.right):
             escaped = _escape(run_text)
             css_fg = to_css(fg)
             css_bg = to_css(bg)
@@ -171,15 +166,16 @@ def _styled_pre_body(
                     style_parts.append(f"color:{css_fg}")
                 if css_bg is not None:
                     style_parts.append(f"background:{css_bg}")
-                chunks.append(
-                    f'<span style="{";".join(style_parts)}">{escaped}</span>'
-                )
+                chunks.append(f'<span style="{";".join(style_parts)}">{escaped}</span>')
         line_strs.append("".join(chunks).rstrip())
     return "\n".join(line_strs)
 
 
-def export_svg(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
-               shapes: list[Shape] | None = None) -> str:
+def export_svg(
+    canvas: Canvas,
+    charset: CharSet = CharSet.UNICODE,
+    shapes: list[Shape] | None = None,
+) -> str:
     """Render the canvas (or selected ``shapes``) to a pure SVG document.
 
     Each character is emitted as its own ``<text>`` element with
@@ -248,7 +244,7 @@ def export_svg(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
             f'y="{rel_row * _SVG_CELL_H:g}" '
             f'textLength="{_SVG_CELL_W:g}" lengthAdjust="spacingAndGlyphs" '
             f'dominant-baseline="text-before-edge"'
-            f'{fill_attr}>{_escape(ch)}</text>'
+            f"{fill_attr}>{_escape(ch)}</text>"
         )
 
     parts.append("</svg>")
@@ -271,8 +267,11 @@ _HTML_TEMPLATE = """<!doctype html>
 """
 
 
-def export_html(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
-                shapes: list[Shape] | None = None) -> str:
+def export_html(
+    canvas: Canvas,
+    charset: CharSet = CharSet.UNICODE,
+    shapes: list[Shape] | None = None,
+) -> str:
     """Render the canvas (or selected ``shapes``) to a complete HTML document.
 
     Returns an empty string when there is nothing to render.
@@ -288,8 +287,11 @@ def export_html(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
 # ---------------------------------------------------------------------------
 
 
-def export_presenterm(canvas: Canvas, charset: CharSet = CharSet.UNICODE,
-                      shapes: list[Shape] | None = None) -> str:
+def export_presenterm(
+    canvas: Canvas,
+    charset: CharSet = CharSet.UNICODE,
+    shapes: list[Shape] | None = None,
+) -> str:
     """Render the canvas (or selected ``shapes``) to presenterm-compatible markdown.
 
     Each row is wrapped in a single outer ``<span>`` so presenterm preserves

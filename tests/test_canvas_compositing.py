@@ -5,7 +5,11 @@ from __future__ import annotations
 from palaterm.canvas import Canvas
 from palaterm.geometry import Point, Rect
 from palaterm.models import (
-    BorderStyle, BoxShape, FillStyle, LineShape, LineStyle,
+    BorderStyle,
+    BoxShape,
+    FillStyle,
+    LineShape,
+    LineStyle,
 )
 
 
@@ -15,16 +19,18 @@ def _viewport() -> Rect:
 
 def _make_horizontal_line(col_a: int, col_b: int, row: int) -> LineShape:
     return LineShape(
-        Point(col_a, row), Point(col_b, row),
-        border=BorderStyle.LIGHT, line_style=LineStyle.ORTHOGONAL,
+        Point(col_a, row),
+        Point(col_b, row),
+        border=BorderStyle.LIGHT,
+        line_style=LineStyle.ORTHOGONAL,
     )
 
 
 def test_occlusion_fill_above_line_hides_line() -> None:
-    """A box drawn after (above) a line, with SPACE fill, occludes the line's interior crossing."""
+    """A box drawn after (above) a line, with SPACE fill,
+    occludes the line's interior crossing."""
     line = _make_horizontal_line(0, 10, 5)
-    box = BoxShape(Rect(3, 4, 5, 3), border=BorderStyle.NONE,
-                   fill=FillStyle.SPACE)
+    box = BoxShape(Rect(3, 4, 5, 3), border=BorderStyle.NONE, fill=FillStyle.SPACE)
     canvas = Canvas()
     canvas.shapes = [line, box]  # line below, box on top
     cells = canvas.render_region(_viewport())
@@ -38,8 +44,7 @@ def test_occlusion_fill_above_line_hides_line() -> None:
 
 def test_occlusion_fill_below_line_keeps_line_visible() -> None:
     """A box drawn before (below) a line, with SPACE fill, does not hide the line."""
-    box = BoxShape(Rect(3, 4, 5, 3), border=BorderStyle.NONE,
-                   fill=FillStyle.SPACE)
+    box = BoxShape(Rect(3, 4, 5, 3), border=BorderStyle.NONE, fill=FillStyle.SPACE)
     line = _make_horizontal_line(0, 10, 5)
     canvas = Canvas()
     canvas.shapes = [box, line]  # box below, line on top
@@ -50,10 +55,10 @@ def test_occlusion_fill_below_line_keeps_line_visible() -> None:
 
 
 def test_pattern_fill_above_line_hides_line() -> None:
-    """A box drawn after (above) a line, with FULL pattern, occludes the line's interior."""
+    """A box drawn after (above) a line, with FULL pattern,
+    occludes the line's interior."""
     line = _make_horizontal_line(0, 10, 5)
-    box = BoxShape(Rect(3, 4, 5, 3), border=BorderStyle.NONE,
-                   fill=FillStyle.FULL)
+    box = BoxShape(Rect(3, 4, 5, 3), border=BorderStyle.NONE, fill=FillStyle.FULL)
     canvas = Canvas()
     canvas.shapes = [line, box]
     cells = canvas.render_region(_viewport())
@@ -63,9 +68,9 @@ def test_pattern_fill_above_line_hides_line() -> None:
 
 
 def test_pattern_fill_below_line_lets_line_through() -> None:
-    """A box drawn before (below) a line, with FULL pattern, lets the line draw over it."""
-    box = BoxShape(Rect(3, 4, 5, 3), border=BorderStyle.NONE,
-                   fill=FillStyle.FULL)
+    """A box drawn before (below) a line, with FULL pattern,
+    lets the line draw over it."""
+    box = BoxShape(Rect(3, 4, 5, 3), border=BorderStyle.NONE, fill=FillStyle.FULL)
     line = _make_horizontal_line(0, 10, 5)
     canvas = Canvas()
     canvas.shapes = [box, line]

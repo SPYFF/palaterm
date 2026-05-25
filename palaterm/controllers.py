@@ -16,8 +16,15 @@ from .models import BorderStyle, EndingStyle, FillStyle, LineStyle
 from .sidebar_state import SidebarState
 from .tools import LineTool, RectangleTool, SelectTool, TextTool, ToolType
 from .widgets.panels import (
-    BorderStylePanel, FillPanel, LayerPanel, LineEndingsPanel, LineStylePanel,
-    SelectModePanel, ShapeAlignPanel, TextAlignPanel, ToolPicker,
+    BorderStylePanel,
+    FillPanel,
+    LayerPanel,
+    LineEndingsPanel,
+    LineStylePanel,
+    SelectModePanel,
+    ShapeAlignPanel,
+    TextAlignPanel,
+    ToolPicker,
 )
 
 
@@ -41,8 +48,12 @@ class ToolController:
             case ToolType.TEXT:
                 return TextTool(self.border_style, self.fill)
             case ToolType.LINE:
-                return LineTool(self.border_style, self.line_style,
-                                self.start_ending, self.end_ending)
+                return LineTool(
+                    self.border_style,
+                    self.line_style,
+                    self.start_ending,
+                    self.end_ending,
+                )
 
 
 class SidebarView:
@@ -76,16 +87,20 @@ class SidebarView:
 
         endings_panel = self._q(LineEndingsPanel)
         endings_panel.set_class(state.line_endings.visible, "visible")
-        if (state.line_endings.visible
-                and state.line_endings.start is not None
-                and state.line_endings.end is not None):
+        if (
+            state.line_endings.visible
+            and state.line_endings.start is not None
+            and state.line_endings.end is not None
+        ):
             endings_panel.set_active(state.line_endings.start, state.line_endings.end)
 
         text_panel = self._q(TextAlignPanel)
         text_panel.set_class(state.text_align.visible, "visible")
-        if (state.text_align.visible
-                and state.text_align.halign is not None
-                and state.text_align.valign is not None):
+        if (
+            state.text_align.visible
+            and state.text_align.halign is not None
+            and state.text_align.valign is not None
+        ):
             text_panel.set_active(state.text_align.halign, state.text_align.valign)
 
         self._q(ShapeAlignPanel).set_class(state.shape_align.visible, "visible")

@@ -6,6 +6,7 @@ foreground+background style indicators per cell.
 
 Run: ``.venv/bin/python scripts/capture_selected.py``
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -17,8 +18,8 @@ sys.path.insert(0, str(ROOT))
 
 from palaterm.app import PalatermApp  # noqa: E402
 from palaterm.geometry import Rect  # noqa: E402
-from palaterm.models.rectangle import RectangleShape  # noqa: E402
 from palaterm.models.enums import BorderStyle, FillStyle  # noqa: E402
+from palaterm.models.rectangle import RectangleShape  # noqa: E402
 from palaterm.tools import SelectTool  # noqa: E402
 
 
@@ -58,7 +59,9 @@ async def main() -> None:
                         style_str = f"[fg={fg} bg={bg}]"
                     row_chars.append(seg.text)
                     row_styles.append(style_str)
-            print(f"y={y}: {''.join(f'{c!r}{s}' for c, s in zip(row_chars, row_styles))}")
+            print(
+                f"y={y}: {''.join(f'{c!r}{s}' for c, s in zip(row_chars, row_styles))}"
+            )
 
 
 if __name__ == "__main__":

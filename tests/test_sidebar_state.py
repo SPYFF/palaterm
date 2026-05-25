@@ -10,12 +10,23 @@ from __future__ import annotations
 from palaterm.controllers import ToolController
 from palaterm.geometry import Point, Rect
 from palaterm.models import (
-    BorderStyle, BoxShape, EndingStyle, FillStyle, HAlign, LineShape, LineStyle,
+    BorderStyle,
+    BoxShape,
+    EndingStyle,
+    FillStyle,
+    HAlign,
+    LineShape,
+    LineStyle,
     VAlign,
 )
 from palaterm.sidebar_state import compute_sidebar_state
 from palaterm.tools import (
-    LineTool, RectangleTool, SelectMode, SelectTool, TextTool, ToolType,
+    LineTool,
+    RectangleTool,
+    SelectMode,
+    SelectTool,
+    TextTool,
+    ToolType,
 )
 
 

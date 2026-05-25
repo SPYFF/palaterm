@@ -6,7 +6,6 @@ from enum import Enum, auto
 
 from ..geometry import Point, Rect
 from ..models import LineShape, Shape
-
 from .draw import DrawTool, LineTool, RectangleTool, TextTool
 from .select import SelectMode, SelectTool
 
@@ -52,11 +51,20 @@ def get_handles(shape: Shape) -> dict[Handle, Point]:
     }
 
 
-def handle_at(shape: Shape, col: int, row: int,
-              pointer_x: float | None = None, pointer_y: float | None = None) -> Handle | None:
+def handle_at(
+    shape: Shape,
+    col: int,
+    row: int,
+    pointer_x: float | None = None,
+    pointer_y: float | None = None,
+) -> Handle | None:
     import math
 
-    matches = [(h, pt) for h, pt in get_handles(shape).items() if pt.col == col and pt.row == row]
+    matches = [
+        (h, pt)
+        for h, pt in get_handles(shape).items()
+        if pt.col == col and pt.row == row
+    ]
     if not matches:
         return None
     if len(matches) == 1 or pointer_x is None or pointer_y is None:
@@ -71,12 +79,22 @@ def handle_at(shape: Shape, col: int, row: int,
         hy = 0.0 if pt.row == b.top else (1.0 if pt.row == b.bottom else 0.5)
         return hx, hy
 
-    return min(matches, key=lambda hp: (fx - expected(hp[1])[0]) ** 2 + (fy - expected(hp[1])[1]) ** 2)[0]
+    return min(
+        matches,
+        key=lambda hp: (fx - expected(hp[1])[0]) ** 2 + (fy - expected(hp[1])[1]) ** 2,
+    )[0]
 
 
 __all__ = [
-    "ToolType", "Handle",
-    "get_handles", "handle_at",
-    "DrawTool", "RectangleTool", "TextTool", "LineTool",
-    "SelectTool", "SelectMode",
+    "ToolType",
+    "Handle",
+    "Rect",
+    "get_handles",
+    "handle_at",
+    "DrawTool",
+    "RectangleTool",
+    "TextTool",
+    "LineTool",
+    "SelectTool",
+    "SelectMode",
 ]

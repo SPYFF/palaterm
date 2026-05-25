@@ -33,7 +33,6 @@ from dataclasses import dataclass
 from .geometry import Rect
 from .models.base import Shape
 
-
 SHAPE_PADDING = 5
 """Cells of breathing room around the shape bbox before it joins the union."""
 
@@ -45,7 +44,9 @@ class CanvasExtent:
     rect: Rect
 
 
-def grow_terminal_floor(prev: Rect | None, terminal_width: int, terminal_height: int) -> Rect:
+def grow_terminal_floor(
+    prev: Rect | None, terminal_width: int, terminal_height: int
+) -> Rect:
     """Return the new terminal floor after a terminal-size observation.
 
     The floor is always centered on the origin and only ever grows: each
@@ -122,5 +123,3 @@ def anchor_scroll_after_resize(
     new_col = shape_col - new_extent.left
     new_row = shape_row - new_extent.top
     return max(0, new_col), max(0, new_row)
-
-
