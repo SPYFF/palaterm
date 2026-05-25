@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI agents working with code in this repository.
 
 ## What this is
 
@@ -8,7 +8,7 @@ Palaterm is a Textual-based TUI drawing app: rectangles, text boxes, and lines c
 
 ## Commands
 
-**Before running anything in this repo, ensure the dev environment is initialized.** Run `uv sync` first if `.venv/` is missing or `uv.lock` has changed. Every command that touches Python — the app, tests, type checking, scripts — must go through `uv run …`. Never invoke `python`, `pytest`, `pyright`, or `palaterm` from the host shell directly; they will resolve to the system interpreter (or fail outright) and miss the project's pinned `textual`, `rich`, `pyright`, `pytest`, etc. Treat "ran it outside the venv" as a bug, not a fallback.
+**Before running anything in this repo, ensure the dev environment is initialized.** Run `uv sync` first if `.venv/` is missing or `uv.lock` has changed. Every command that touches Python — the app, tests, linting, scripts — must go through `uv run …`. Never invoke `python`, `pytest`, `pyright`, `ruff`, or `palaterm` from the host shell directly; they will resolve to the system interpreter (or fail outright) and miss the project's pinned dependencies. Treat "ran it outside the venv" as a bug, not a fallback.
 
 ```bash
 uv sync                                # install deps (incl. dev group) — run first
@@ -19,7 +19,9 @@ uv run pytest                          # run all tests (asyncio_mode=auto)
 uv run pytest tests/test_models.py::test_name  # single test
 uv run pytest --cov                    # coverage (branch, src=palaterm/)
 
-uv run pyright                         # type check
+uv run ruff check                      # lint (errors, style, imports)
+uv run ruff format --check             # check formatting without modifying
+uv run ruff format                     # auto-format in place
 
 uv run python scripts/bench_render.py     # render benchmark on the fixed-50 canvas
 uv run python scripts/bench_serialize.py  # serialization benchmark
@@ -27,13 +29,21 @@ uv run python scripts/bench_serialize.py  # serialization benchmark
 
 `uv run palaterm` requires a real TTY — run it in a terminal, not piped. It probes the terminal via `OSC 11` to auto-pick a light/dark theme.
 
-### Type checking with pyright
+### Linting with ruff
 
-Always run pyright via `uv run pyright`. The editor/IDE pyright integration (which feeds the `<new-diagnostics>` system reminders during a Claude Code session) runs *outside* the `uv`-managed venv and reports spurious `Import "textual.…" could not be resolved` errors for every panel/widget file. **Ignore those.** They do not reflect real type problems — the code imports fine.
+Ruff is the project linter. Run `uv run ruff check` to find errors (pyflakes `F`), style issues (`E`), and import ordering (`I`). Run `uv run ruff format --check` to verify formatting. Fix lint issues with `uv run ruff check --fix`; auto-format with `uv run ruff format`. Configuration lives in `[tool.ruff]` inside `pyproject.toml`.
 
-To validate correctness, run `uv run pyright` once at the end of a change and compare the error count against the `main` baseline (currently 15 pre-existing errors). New errors introduced by your change will be visible at the bottom of the output. The baseline errors live in `app.py`, `serialization.py`, `widgets/canvas.py`, `scripts/`, and `tests/test_commands.py` — leave them alone unless the task is specifically to fix them.
+### LSP (pyright)
 
-There is no `pyrightconfig.json`. Pyright picks up the `.venv` (created by `uv sync`) automatically when invoked through `uv run`.
+Pyright serves as the LSP **only** — it provides completions, hover, go-to-definition, and rename. **Diagnostics are disabled** via `pyrightconfig.json` (`"typeCheckingMode": "off"`) and the LSP initialization options in `.kiro/settings/lsp.json`. Do not rely on pyright for error checking; use `uv run ruff check` instead.
+
+The LSP **must** be initialized inside the `uv` venv:
+
+```
+uv run pyright-langserver --stdio
+```
+
+This is already configured in `.kiro/settings/lsp.json`. If you are an agent with LSP support, ensure you launch pyright via `uv run` — never the system-installed pyright. The venv provides the correct `textual`, `rich`, and other dependencies for import resolution.
 
 ## Architecture
 
