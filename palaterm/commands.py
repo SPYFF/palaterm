@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 from .canvas import Canvas
 from .connectors import Anchor, Connector
@@ -17,12 +17,19 @@ class Command(Protocol):
 
 
 class CommandHistory:
-    """Manages undo/redo stacks."""
+    """Manages undo/redo stacks.
+
+    Exposes a single ``on_change`` callback that fires after every
+    push/execute/undo/redo. The widget subscribes to recompute the
+    virtual canvas; this is the canonical seam, so callers no longer
+    need to invoke ``_update_virtual_size()`` manually.
+    """
 
     def __init__(self) -> None:
         self._undo: list[Command] = []
         self._redo: list[Command] = []
         self._save_point: int = 0
+        self.on_change: Callable[[], None] | None = None
 
     def mark_saved(self) -> None:
         self._save_point = len(self._undo)
@@ -31,15 +38,21 @@ class CommandHistory:
     def is_dirty(self) -> bool:
         return len(self._undo) != self._save_point
 
+    def _notify(self) -> None:
+        if self.on_change is not None:
+            self.on_change()
+
     def push(self, cmd: Command) -> None:
         """Record a command that was already executed."""
         self._undo.append(cmd)
         self._redo.clear()
+        self._notify()
 
     def execute(self, cmd: Command) -> None:
         cmd.execute()
         self._undo.append(cmd)
         self._redo.clear()
+        self._notify()
 
     def undo(self) -> bool:
         if not self._undo:
@@ -47,6 +60,7 @@ class CommandHistory:
         cmd = self._undo.pop()
         cmd.undo()
         self._redo.append(cmd)
+        self._notify()
         return True
 
     def redo(self) -> bool:
@@ -55,6 +69,7 @@ class CommandHistory:
         cmd = self._redo.pop()
         cmd.execute()
         self._undo.append(cmd)
+        self._notify()
         return True
 
     @property

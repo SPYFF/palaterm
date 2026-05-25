@@ -150,6 +150,7 @@ class PalatermApp(App):
         self._clipboard: list = []
         self._paste_count: int = 0
         self._initial_file = initial_file
+        # Wired up in on_mount() once the widget exists.
 
     def compose(self) -> ComposeResult:
         with Vertical(id="sidebar"):
@@ -172,6 +173,7 @@ class PalatermApp(App):
         self._sidebar = SidebarView(self.query_one)
         self._canvas_widget = self.query_one(CanvasWidget)
         self._status_bar = self.query_one(StatusBar)
+        self._canvas_widget.attach_history(self.history)
         if self._initial_file:
             self._do_open(self._initial_file)
         self._update_terminal_title()
@@ -369,7 +371,6 @@ class PalatermApp(App):
             cmd = RemoveShapes(cw.canvas, cw.tool.selected)
             self.history.execute(cmd)
             cw.tool.selected = []
-            cw._update_virtual_size()
             cw.refresh()
             self._update_status()
 
@@ -522,7 +523,9 @@ class PalatermApp(App):
             cw.tool.selected = []
         self._file_path = path
         self.history = CommandHistory()
-        cw._update_virtual_size()
+        cw.attach_history(self.history)
+        cw._update_virtual_size_preserving_anchor()
+        cw.scroll_to_shape_bbox_center()
         cw.refresh()
         self.notify(f"Opened: {path}", timeout=2)
         self._update_status()
@@ -563,13 +566,11 @@ class PalatermApp(App):
 
     def action_undo(self) -> None:
         if self.history.undo():
-            self.canvas_widget._update_virtual_size()
             self.canvas_widget.refresh()
             self._update_status()
 
     def action_redo(self) -> None:
         if self.history.redo():
-            self.canvas_widget._update_virtual_size()
             self.canvas_widget.refresh()
             self._update_status()
 
@@ -593,7 +594,6 @@ class PalatermApp(App):
         cmd = RemoveShapes(cw.canvas, cw.tool.selected)
         self.history.execute(cmd)
         cw.tool.selected = []
-        cw._update_virtual_size()
         cw.refresh()
         self._update_status()
 
@@ -628,7 +628,6 @@ class PalatermApp(App):
         if not isinstance(cw.tool, SelectTool):
             self._switch_tool(ToolType.SELECT)
         cw.tool.selected = new_shapes
-        cw._update_virtual_size()
         cw.refresh()
         self._update_panels()
         self._update_status()

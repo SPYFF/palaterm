@@ -389,7 +389,10 @@ def save_canvas(canvas: Canvas, path: Path, charset: CharSet = CharSet.UNICODE) 
 
 
 def load_canvas(path: Path) -> tuple[Canvas, CharSet]:
-    """Deserialize shapes from a JSON file. Returns ``(canvas, charset)``."""
+    """Deserialize shapes from a JSON file. Returns ``(canvas, charset)``.
+
+    Pure: coordinates round-trip identically.
+    """
     data = json.loads(path.read_text())
     canvas = Canvas()
     for short in data.get("shapes", []):

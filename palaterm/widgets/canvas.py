@@ -5,13 +5,17 @@ from __future__ import annotations
 import math
 import time
 
-from textual.events import MouseDown, MouseMove, MouseUp
+from textual.events import MouseDown, MouseMove, MouseUp, Resize
 from textual.geometry import Region, Size
 from textual.message import Message
 from textual.scroll_view import ScrollView
 from textual.strip import Strip
 
 from ..canvas import Canvas
+from ..canvas_geometry import (
+    anchor_scroll_after_resize, compute_virtual_extent, grow_terminal_floor,
+)
+from ..commands import CommandHistory
 from ..geometry import Rect
 from ..rendering import FrameRenderer
 from ..models import BoxShape, CharSet
@@ -21,9 +25,9 @@ from ..tools.gestures import (
 )
 from .modals import TextEditModal
 
-_ORIGIN_COL = 100
-_ORIGIN_ROW = 100
-_PADDING = 50
+# Fallback floor used before the first ``Resize`` event lands. Centered on
+# origin so the initial scroll position lines up with shape (0, 0).
+_FALLBACK_FLOOR = Rect(-40, -12, 80, 25)
 
 
 class CanvasWidget(ScrollView, can_focus=True):
@@ -73,35 +77,114 @@ class CanvasWidget(ScrollView, can_focus=True):
         self._renderer = FrameRenderer(self.canvas)
         self._last_click_time: float = 0
         self._last_click_pos: tuple[int, int] = (0, 0)
+        # Terminal floor: high-water-mark of terminal dims this session,
+        # centered on origin. Fallback until the first Resize lands.
+        self._terminal_floor: Rect = _FALLBACK_FLOOR
+        # Current virtual canvas extent (union of floor + padded bbox).
+        # Drives scroll-coord conversion; set by _update_virtual_size().
+        self._extent: Rect = _FALLBACK_FLOOR
         self._update_virtual_size()
 
     def on_mount(self) -> None:
         super().on_mount()
-        self.scroll_to(_ORIGIN_COL, _ORIGIN_ROW, animate=False)
+        # Center viewport on origin: scroll so shape (0, 0) lands at the
+        # top-left + half the viewport. With the fallback floor centered
+        # on origin, scrolling to (-extent.left, -extent.top) puts the
+        # virtual canvas's top-left at the viewport's top-left, which
+        # contains origin near the center because the floor is centered.
+        self._scroll_to_shape_center()
+
+    def attach_history(self, history: CommandHistory) -> None:
+        """Subscribe to the history's change hook for shape-side recompute.
+
+        The widget also recomputes on terminal resize, but that's driven
+        by ``on_resize`` rather than the history.
+        """
+        history.on_change = self._on_history_change
+
+    def _on_history_change(self) -> None:
+        self._update_virtual_size_preserving_anchor()
 
     @property
     def _scroll_col(self) -> int:
-        return int(self.scroll_x) - _ORIGIN_COL
+        return int(self.scroll_x) + self._extent.left
 
     @property
     def _scroll_row(self) -> int:
-        return int(self.scroll_y) - _ORIGIN_ROW
+        return int(self.scroll_y) + self._extent.top
 
     def _update_virtual_size(self) -> None:
-        """Recompute virtual_size to encompass all shapes + padding."""
-        min_w = 200
-        min_h = 200
-        if self.canvas.shapes:
-            bounds = [s.bound for s in self.canvas.shapes]
-            left = min(b.left for b in bounds)
-            top = min(b.top for b in bounds)
-            right = max(b.right for b in bounds)
-            bottom = max(b.bottom for b in bounds)
-            w = max(min_w, (right + _ORIGIN_COL + _PADDING) * 2)
-            h = max(min_h, (bottom + _ORIGIN_ROW + _PADDING) * 2)
-        else:
-            w, h = min_w, min_h
-        self.virtual_size = Size(w, h)
+        """Recompute the extent and virtual_size from current state."""
+        extent = compute_virtual_extent(self._terminal_floor, self.canvas.shapes).rect
+        self._extent = extent
+        self.virtual_size = Size(extent.width, extent.height)
+
+    def _update_virtual_size_preserving_anchor(self) -> None:
+        """Recompute the extent, then re-anchor scroll to keep the top-left shape coord stable."""
+        old_extent = self._extent
+        old_scroll_x = int(self.scroll_x)
+        old_scroll_y = int(self.scroll_y)
+        self._update_virtual_size()
+        new_x, new_y = anchor_scroll_after_resize(
+            old_extent, self._extent, old_scroll_x, old_scroll_y,
+        )
+        if (new_x, new_y) != (old_scroll_x, old_scroll_y):
+            self.scroll_to(new_x, new_y, animate=False)
+
+    def on_resize(self, event: Resize) -> None:
+        """Grow the terminal floor when the terminal grows; never shrink."""
+        # ``size`` here is the widget's allocated size, which is what
+        # determines how much room there is to draw. Treat it as the
+        # contributor to the floor.
+        new_floor = grow_terminal_floor(
+            self._terminal_floor, event.size.width, event.size.height,
+        )
+        if new_floor != self._terminal_floor:
+            self._terminal_floor = new_floor
+            # Floor change keeps origin centered, so the shape coord at
+            # top-left changes only when the new floor's left/top edges
+            # differ from the prior extent's. anchor_scroll_after_resize
+            # handles that.
+            self._update_virtual_size_preserving_anchor()
+
+    def _scroll_to_shape_center(self) -> None:
+        """Scroll so shape (0, 0) lands at the viewport's center."""
+        # scroll position that puts shape (0, 0) at viewport top-left:
+        zero_x = -self._extent.left
+        zero_y = -self._extent.top
+        # offset back by half the viewport to put origin at center
+        size = self.scrollable_content_region
+        half_w = (size.width or self.size.width) // 2
+        half_h = (size.height or self.size.height) // 2
+        self.scroll_to(max(0, zero_x - half_w), max(0, zero_y - half_h), animate=False)
+
+    def scroll_to_shape_bbox_center(self) -> None:
+        """Scroll the viewport to the center of the shape bounding box.
+
+        Used after file-open. Falls back to scrolling to origin when the
+        canvas is empty.
+        """
+        from ..canvas_geometry import shape_bounding_box
+
+        bbox = shape_bounding_box(self.canvas.shapes)
+        if bbox is None:
+            self._scroll_to_shape_center()
+            return
+        cx = bbox.left + bbox.width // 2
+        cy = bbox.top + bbox.height // 2
+        self.scroll_to_shape(cx, cy, center=True)
+
+    def scroll_to_shape(self, col: int, row: int, *, center: bool = True) -> None:
+        """Scroll the viewport so shape ``(col, row)`` is centered (or at top-left)."""
+        x = col - self._extent.left
+        y = row - self._extent.top
+        if center:
+            size = self.scrollable_content_region
+            half_w = (size.width or self.size.width) // 2
+            half_h = (size.height or self.size.height) // 2
+            x -= half_w
+            y -= half_h
+        self.scroll_to(max(0, x), max(0, y), animate=False)
 
     def _to_canvas_coords(self, x: int, y: int) -> tuple[int, int]:
         return x + self._scroll_col, y + self._scroll_row
@@ -136,8 +219,8 @@ class CanvasWidget(ScrollView, can_focus=True):
 
     def render_line(self, y: int) -> Strip:
         scroll_x, scroll_y = self.scroll_offset
-        canvas_col = scroll_x - _ORIGIN_COL
-        canvas_row = scroll_y - _ORIGIN_ROW
+        canvas_col = scroll_x + self._extent.left
+        canvas_row = scroll_y + self._extent.top
         region = self.scrollable_content_region
         viewport = Rect(canvas_col, canvas_row, region.width or self.size.width, region.height or self.size.height)
         return self._renderer.render_line(y, viewport, self.tool, self.rich_style, self.charset)
@@ -397,7 +480,6 @@ class CanvasWidget(ScrollView, can_focus=True):
                 self.open_text_editor(result)
             elif result is not None:
                 self.post_message(self.ShapeCreated(result))
-        self._update_virtual_size()
         self._refresh_dirty_since(before)
 
     def _post_gesture_commit(self, commit: GestureCommit | None) -> None:
