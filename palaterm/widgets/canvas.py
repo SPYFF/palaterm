@@ -8,8 +8,8 @@ import time
 from textual.events import MouseDown, MouseMove, MouseUp
 from textual.geometry import Region, Size
 from textual.message import Message
+from textual.scroll_view import ScrollView
 from textual.strip import Strip
-from textual.widget import Widget
 
 from ..canvas import Canvas
 from ..geometry import Rect
@@ -26,7 +26,7 @@ _ORIGIN_ROW = 100
 _PADDING = 50
 
 
-class CanvasWidget(Widget, can_focus=True):
+class CanvasWidget(ScrollView, can_focus=True):
     """The drawing canvas widget."""
 
     class ShapeCreated(Message):
@@ -76,17 +76,8 @@ class CanvasWidget(Widget, can_focus=True):
         self._update_virtual_size()
 
     def on_mount(self) -> None:
+        super().on_mount()
         self.scroll_to(_ORIGIN_COL, _ORIGIN_ROW, animate=False)
-
-    def watch_scroll_x(self, old_value: float, new_value: float) -> None:
-        super().watch_scroll_x(old_value, new_value)
-        if round(old_value) != round(new_value):
-            self._renderer.invalidate()
-
-    def watch_scroll_y(self, old_value: float, new_value: float) -> None:
-        super().watch_scroll_y(old_value, new_value)
-        if round(old_value) != round(new_value):
-            self._renderer.invalidate()
 
     @property
     def _scroll_col(self) -> int:
