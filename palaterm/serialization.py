@@ -422,8 +422,7 @@ def load_canvas(path: Path) -> tuple[Canvas, CharSet]:
     file_version = data.get("version", 1)
     if file_version > 1:
         raise ValueError(
-            f"Unsupported file version {file_version}. "
-            f"Please update palaterm."
+            f"Unsupported file version {file_version}. Please update palaterm."
         )
     canvas = Canvas()
     for short in data.get("shapes", []):
