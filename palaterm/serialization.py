@@ -19,8 +19,7 @@ insertion order.
 Translation (key abbreviation + enum encoding) happens once at the file
 boundary.
 
-Single, current format. No version numbering, no backward compat —
-palaterm is in early development; old files will not load.
+Format version 1 (current). Files without a "version" key are treated as v1.
 
 Key cipher (saved file ↔ source code):
 
@@ -404,6 +403,7 @@ def save_canvas(canvas: Canvas, path: Path, charset: CharSet = CharSet.UNICODE) 
 
     parts = [
         "{",
+        '  "version": 1,',
         f'  "charset": {json.dumps(_enum_str(charset))},',
         f'  "shapes": {_emit_jsonl_array(shapes)},',
         f'  "connectors": {_emit_jsonl_array(connectors)}',
@@ -419,6 +419,12 @@ def load_canvas(path: Path) -> tuple[Canvas, CharSet]:
     Pure: coordinates round-trip identically.
     """
     data = json.loads(path.read_text())
+    file_version = data.get("version", 1)
+    if file_version > 1:
+        raise ValueError(
+            f"Unsupported file version {file_version}. "
+            f"Please update palaterm."
+        )
     canvas = Canvas()
     for short in data.get("shapes", []):
         d = _decode_values(_lengthen_keys(short))
