@@ -67,7 +67,7 @@ async def main() -> None:
         print(f"=== StatusBar region: {sb.region} ===")
         for btn in sb.query(Button):
             print(
-                f"   StatusBar Button id={btn.id!r:24} region={btn.region} label={btn.label!r}" # noqa: E501
+                f"   StatusBar Button id={btn.id!r:24} region={btn.region} label={btn.label!r}"  # noqa: E501
             )
         print()
 
@@ -75,7 +75,7 @@ async def main() -> None:
 
         for h in app.query(Horizontal):
             print(
-                f"Horizontal id={h.id} parent={type(h.parent).__name__} region={h.region} styles.width={h.styles.width}" # noqa: E501
+                f"Horizontal id={h.id} parent={type(h.parent).__name__} region={h.region} styles.width={h.styles.width}"  # noqa: E501
             )
         print()
 
@@ -92,11 +92,11 @@ async def main() -> None:
             display = panel.styles.display
             visible = "visible" in panel.classes
             print(
-                f"=== {cls.__name__} region={panel.region} display={display} visible={visible} ===" # noqa: E501
+                f"=== {cls.__name__} region={panel.region} display={display} visible={visible} ==="  # noqa: E501
             )
             for btn in panel.query(Button):
                 print(
-                    f"   Button id={btn.id!r:30} region={btn.region} label={btn.label!r}" # noqa: E501
+                    f"   Button id={btn.id!r:30} region={btn.region} label={btn.label!r}"  # noqa: E501
                 )
             print()
 
