@@ -10,13 +10,18 @@ A terminal-based drawing application inspired by [MonoSketch](https://github.com
 - **Select tool** — click to select, drag to move, handles to resize, rectangle-select multiple shapes
 - **Border styles** — light (┌─┐), heavy (┏━┓), double (╔═╗), rounded (╭─╮), braille (⡇⠉⢸)
 - **Line styles** — orthogonal (L-shaped) or straight (braille sub-pixel)
+- **Line endings** — arrow, square, circle, star
+- **Connectors** — lines snap to box edges and follow when boxes move
 - **Text alignment** — horizontal (left/center/right) and vertical (top/middle/bottom)
 - **Layer ordering** — bring forward/backward, send to front/back
 - **Shape alignment** — align multiple selected shapes (left/center/right/top/middle/bottom)
+- **Colors** — foreground color per shape
+- **Fill styles** — none, light, medium, full, space
+- **Copy/paste** — duplicate shapes with connectors preserved
 - **Charset toggle** — switch between Unicode and ASCII rendering
 - **Undo/redo** — full command history
-- **Save/open** — JSON-based `.palaterm` file format
-- **Export** — copy selection or full canvas to clipboard
+- **Save/open** — versioned JSON-based `.palaterm` file format (v1)
+- **Export** — copy to clipboard as plain text, HTML, SVG, or presenterm format
 - **Infinite canvas** — scroll in any direction
 - **Auto theme** — detects light/dark terminal background
 
@@ -29,17 +34,26 @@ uv sync
 uv run palaterm
 ```
 
+Open an existing file:
+
+```bash
+uv run palaterm path/to/file.palaterm
+```
+
 ### Keybindings
 
 | Key | Action |
 |-----|--------|
 | `s` | Select tool |
-| `r` | Rectangle tool |
+| `b` | Rectangle (box) tool |
 | `t` | Text tool |
 | `l` | Line tool |
 | `Delete` | Delete selected shape(s) |
 | `Ctrl+Z` | Undo |
 | `Ctrl+Y` | Redo |
+| `Ctrl+C` | Copy |
+| `Ctrl+X` | Cut |
+| `Ctrl+V` | Paste |
 | `Ctrl+S` | Save |
 | `Ctrl+Shift+S` | Save As |
 | `Ctrl+O` | Open file |
@@ -48,8 +62,18 @@ uv run palaterm
 | `a` / `A` | Cycle horizontal/vertical text alignment |
 | `]` / `[` | Bring forward / send backward |
 | `}` / `{` | Bring to front / send to back |
+| `Escape` | Deselect |
 | `↑↓←→` | Scroll canvas |
 | `q` | Quit |
+
+## Development
+
+```bash
+uv sync                    # install deps
+uv run pytest              # run tests
+uv run ruff check          # lint
+uv run ruff format --check # check formatting
+```
 
 ## Code Structure
 
@@ -57,14 +81,22 @@ uv run palaterm
 palaterm/
 ├── app.py              # Textual app, keybindings, event wiring
 ├── canvas.py           # Shape collection, hit-testing, compositing
-├── rendering.py        # Viewport rendering to terminal strips
-├── serialization.py    # JSON save/load
-├── crossings.py        # Line crossing/intersection detection
+├── canvas_geometry.py  # Virtual extent and scroll math
+├── commands.py         # Undo/redo command pattern
+├── connectors.py       # Line-to-box snap anchoring
+├── controllers.py      # Tool and panel state controllers
+├── crossings.py        # Line crossing/intersection glyphs
+├── exporters.py        # HTML, SVG, presenterm export
 ├── geometry.py         # Point and Rect primitives
-├── shapes.py           # Re-exports from models
+├── rendering.py        # Viewport rendering to terminal strips
+├── serialization.py    # JSON save/load (format v1)
+├── sidebar_state.py    # Pure-function sidebar derivation
+├── style_application.py # Attribute change via commands
 ├── models/             # Shape classes, enums, charset, braille
 ├── tools/              # Select, Rectangle, Text, Line tool logic
-├── widgets/            # Canvas widget, toolbar, panels, status bar, modals
-├── controllers/        # Tool and panel state controllers
-└── commands/           # Undo/redo command pattern
+└── widgets/            # Canvas widget, toolbar, panels, status bar, modals
 ```
+
+## License
+
+MIT
