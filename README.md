@@ -32,6 +32,10 @@ Requires Python 3.11+ and [uv](https://docs.astral.sh/uv/).
 ```bash
 uv sync
 uv run palaterm
+
+# Install for the user
+cd palaterm/
+uv tool install .
 ```
 
 Open an existing file:
