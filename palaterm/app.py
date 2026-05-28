@@ -433,6 +433,7 @@ class PalatermApp(App):
             self.history.execute(cmd)
             cw.tool.selected = []
             cw.refresh()
+            self._update_panels()
             self._update_status()
 
     def action_deselect(self) -> None:
@@ -600,6 +601,7 @@ class PalatermApp(App):
         cw.scroll_to_shape_bbox_center()
         cw.refresh()
         self.notify(f"Opened: {path}", timeout=2)
+        self._update_panels()
         self._update_status()
 
     def action_scroll(self, direction: str) -> None:
@@ -639,11 +641,13 @@ class PalatermApp(App):
     def action_undo(self) -> None:
         if self.history.undo():
             self.canvas_widget.refresh()
+            self._update_panels()
             self._update_status()
 
     def action_redo(self) -> None:
         if self.history.redo():
             self.canvas_widget.refresh()
+            self._update_panels()
             self._update_status()
 
     def action_copy(self) -> None:
@@ -669,6 +673,7 @@ class PalatermApp(App):
         self.history.execute(cmd)
         cw.tool.selected = []
         cw.refresh()
+        self._update_panels()
         self._update_status()
 
     def action_paste(self) -> None:
@@ -791,7 +796,6 @@ class PalatermApp(App):
 
         right = f"{file_part} [{charset_indicator}] │ {count} shapes"
 
-        self._update_panels()
         self._status_bar.update(left, center, right)
         self._update_terminal_title()
 

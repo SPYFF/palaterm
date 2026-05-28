@@ -30,6 +30,15 @@ def render_border(rect: Rect, border: BorderStyle) -> dict[tuple[int, int], str]
     return cells
 
 
+# Attributes whose mutation invalidates the render cache.
+_TRACKED_ATTRS = frozenset({
+    "text", "border", "fill", "halign", "valign",
+    "line_style", "start_ending", "end_ending",
+    "rect", "rect_f", "start", "end",
+    "start_side", "end_side", "start_sub", "end_sub",
+})
+
+
 class Shape(ABC):
     """Base shape class."""
 
@@ -37,15 +46,39 @@ class Shape(ABC):
         self.id: str = _uuid.uuid4().hex[:8]
         self.fg: str | None = None
         self.bg: str | None = None
+        self._version: int = 0
+        self._render_cache: tuple[int, CharSet, dict[tuple[int, int], str]] | None = (
+            None
+        )
+
+    def _bump_version(self) -> None:
+        self._version += 1
+
+    def __setattr__(self, name: str, value) -> None:
+        super().__setattr__(name, value)
+        if name in _TRACKED_ATTRS:
+            # Bump version — use super().__setattr__ to avoid recursion
+            super().__setattr__("_version", getattr(self, "_version", 0) + 1)
 
     @property
     @abstractmethod
     def bound(self) -> Rect: ...
 
     @abstractmethod
-    def render(
+    def _render_impl(
         self, charset: CharSet = CharSet.UNICODE
     ) -> dict[tuple[int, int], str]: ...
+
+    def render(
+        self, charset: CharSet = CharSet.UNICODE
+    ) -> dict[tuple[int, int], str]:
+        """Cached render: returns the same dict if shape hasn't mutated."""
+        cache = self._render_cache
+        if cache is not None and cache[0] == self._version and cache[1] == charset:
+            return cache[2]
+        result = self._render_impl(charset)
+        self._render_cache = (self._version, charset, result)
+        return result
 
     def hit_test(self, col: int, row: int) -> bool:
         return self.bound.contains(col, row)

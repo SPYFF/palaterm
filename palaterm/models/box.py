@@ -35,7 +35,9 @@ class BoxShape(RectShape):
             return self.bound.contains(col, row)
         return self.bound.contains(col, row) and bool(self.text)
 
-    def render(self, charset: CharSet = CharSet.UNICODE) -> dict[tuple[int, int], str]:
+    def _render_impl(
+        self, charset: CharSet = CharSet.UNICODE
+    ) -> dict[tuple[int, int], str]:
         cells: dict[tuple[int, int], str] = {}
         r = self.rect
         if r.width < 1 or r.height < 1:

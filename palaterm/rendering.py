@@ -35,9 +35,37 @@ class FrameRenderer:
     def __init__(self, canvas: Canvas) -> None:
         self.canvas = canvas
         self._cache: tuple | None = None
+        # Pending dirty rect for partial invalidation.
+        self._dirty_rect: Rect | None = None
+        # Last viewport/charset used to build the cache — needed to detect
+        # when a full rebuild is required (viewport scroll or charset change).
+        self._cache_viewport: Rect | None = None
+        self._cache_charset: CharSet | None = None
 
-    def invalidate(self) -> None:
-        self._cache = None
+    def invalidate(self, dirty_rect: Rect | None = None) -> None:
+        """Mark the cache as needing a rebuild.
+
+        If ``dirty_rect`` is provided and a cache already exists, only the
+        cells within that rect will be recomputed on the next render pass.
+        If ``None``, the entire cache is discarded.
+        """
+        if dirty_rect is None:
+            self._cache = None
+            self._dirty_rect = None
+            return
+        # If there's no existing cache, a full rebuild is needed anyway.
+        if self._cache is None:
+            return
+        # Accumulate dirty rects via union.
+        if self._dirty_rect is None:
+            self._dirty_rect = dirty_rect
+        else:
+            d = self._dirty_rect
+            left = min(d.left, dirty_rect.left)
+            top = min(d.top, dirty_rect.top)
+            right = max(d.left + d.width - 1, dirty_rect.left + dirty_rect.width - 1)
+            bottom = max(d.top + d.height - 1, dirty_rect.top + dirty_rect.height - 1)
+            self._dirty_rect = Rect(left, top, right - left + 1, bottom - top + 1)
 
     def _ensure_cache(
         self,
@@ -46,42 +74,36 @@ class FrameRenderer:
         base_style: RichStyle,
         charset: CharSet,
     ) -> tuple:
-        if self._cache is not None:
+        # If viewport or charset changed since last cache, force full rebuild.
+        if (
+            self._cache is not None
+            and (viewport != self._cache_viewport or charset != self._cache_charset)
+        ):
+            self._cache = None
+            self._dirty_rect = None
+
+        if self._cache is not None and self._dirty_rect is None:
             return self._cache
 
-        cells = self.canvas.render_region(viewport, charset)
+        if self._cache is None:
+            # Full rebuild.
+            cells = self.canvas.render_region(viewport, charset)
+            cell_styles = self._build_cell_styles(charset)
+        else:
+            # Partial rebuild: recompute only cells in the dirty rect.
+            cells = self._cache[0]
+            cell_styles = self._cache[7]
+            self._patch_cells(cells, cell_styles, self._dirty_rect, viewport, charset)
 
-        cell_styles: dict[tuple[int, int], RichStyle] = {}
-        for shape in self.canvas.shapes:
-            if shape.fg is None and shape.bg is None:
-                continue
-            shape_style = RichStyle(color=shape.fg, bgcolor=shape.bg)
-            for pos in shape.render(charset):
-                cell_styles[pos] = shape_style
+        self._dirty_rect = None
+        self._cache_viewport = viewport
+        self._cache_charset = charset
 
-        highlight_cells: dict[tuple[int, int], str] = {}
-        handle_cells: set[tuple[int, int]] = set()
-        snap_edge_cells: set[tuple[int, int]] = set()
-        edge_hover_cells: set[tuple[int, int]] = set()
-
-        if isinstance(tool, SelectTool):
-            for shape in tool.selected:
-                for pos in shape.render(charset):
-                    highlight_cells[pos] = "yellow"
-                for _, pt in get_handles(shape).items():
-                    handle_cells.add((pt.col, pt.row))
-            if tool.hover_shape and tool.hover_shape not in tool.selected:
-                for pos in tool.hover_shape.render(charset):
-                    highlight_cells[pos] = "bright_cyan"
-                for _, pt in get_handles(tool.hover_shape).items():
-                    handle_cells.add((pt.col, pt.row))
-
-        if tool is not None and hasattr(tool, "overlays"):
-            for overlay in tool.overlays():
-                if isinstance(overlay, SnapHighlight):
-                    snap_edge_cells |= self._snap_edge_cells(overlay)
-                elif isinstance(overlay, EdgeHover):
-                    edge_hover_cells |= self._edge_hover_cells(overlay, charset)
+        # Overlays are always fully recomputed (they read from cached
+        # shape.render() dicts so they're cheap).
+        highlight_cells, handle_cells, snap_edge_cells, edge_hover_cells = (
+            self._build_overlays(tool, charset)
+        )
 
         sel_rect = None
         if isinstance(tool, SelectTool) and tool.selection_rect:
@@ -113,6 +135,119 @@ class FrameRenderer:
             edge_hover_cells,
         )
         return self._cache
+
+    def _build_cell_styles(
+        self, charset: CharSet
+    ) -> dict[tuple[int, int], RichStyle]:
+        cell_styles: dict[tuple[int, int], RichStyle] = {}
+        for shape in self.canvas.shapes:
+            if shape.fg is None and shape.bg is None:
+                continue
+            shape_style = RichStyle(color=shape.fg, bgcolor=shape.bg)
+            for pos in shape.render(charset):
+                cell_styles[pos] = shape_style
+        return cell_styles
+
+    def _patch_cells(
+        self,
+        cells: dict[tuple[int, int], str],
+        cell_styles: dict[tuple[int, int], RichStyle],
+        dirty: Rect,
+        viewport: Rect,
+        charset: CharSet,
+    ) -> None:
+        """Recompute cells within the dirty rect, merging into existing dicts."""
+        from .crossings import is_connectable, resolve_crossing
+        from .models import to_ascii
+
+        d_left, d_top = dirty.left, dirty.top
+        d_right = dirty.left + dirty.width - 1
+        d_bottom = dirty.top + dirty.height - 1
+
+        # Clamp to viewport.
+        v_left, v_top = viewport.left, viewport.top
+        v_right = viewport.left + viewport.width - 1
+        v_bottom = viewport.top + viewport.height - 1
+        r_left = max(d_left, v_left)
+        r_top = max(d_top, v_top)
+        r_right = min(d_right, v_right)
+        r_bottom = min(d_bottom, v_bottom)
+        if r_left > r_right or r_top > r_bottom:
+            return
+
+        # Clear existing cells and styles in the dirty region.
+        for row in range(r_top, r_bottom + 1):
+            for col in range(r_left, r_right + 1):
+                pos = (col, row)
+                cells.pop(pos, None)
+                cell_styles.pop(pos, None)
+
+        # Re-composite shapes that intersect the dirty rect.
+        for shape in self.canvas.shapes:
+            b = shape.bound
+            if (
+                b.left + b.width - 1 < r_left
+                or b.left > r_right
+                or b.top + b.height - 1 < r_top
+                or b.top > r_bottom
+            ):
+                continue
+            shape_style = None
+            if shape.fg is not None or shape.bg is not None:
+                shape_style = RichStyle(color=shape.fg, bgcolor=shape.bg)
+            for (col, row), ch in shape.render(charset).items():
+                if not (r_left <= col <= r_right and r_top <= row <= r_bottom):
+                    continue
+                if not (v_left <= col <= v_right and v_top <= row <= v_bottom):
+                    continue
+                existing = cells.get((col, row))
+                if existing and is_connectable(existing) and is_connectable(ch):
+                    cells[(col, row)] = resolve_crossing(existing, ch)
+                else:
+                    cells[(col, row)] = ch
+                if shape_style is not None:
+                    cell_styles[(col, row)] = shape_style
+
+        if charset == CharSet.ASCII:
+            for row in range(r_top, r_bottom + 1):
+                for col in range(r_left, r_right + 1):
+                    pos = (col, row)
+                    if pos in cells:
+                        cells[pos] = to_ascii(cells[pos])
+
+    def _build_overlays(
+        self, tool: DrawTool | SelectTool | None, charset: CharSet
+    ) -> tuple[
+        dict[tuple[int, int], str],
+        set[tuple[int, int]],
+        set[tuple[int, int]],
+        set[tuple[int, int]],
+    ]:
+        highlight_cells: dict[tuple[int, int], str] = {}
+        handle_cells: set[tuple[int, int]] = set()
+        snap_edge_cells: set[tuple[int, int]] = set()
+        edge_hover_cells: set[tuple[int, int]] = set()
+
+        if isinstance(tool, SelectTool):
+            for shape in tool.selected:
+                for pos in shape.render(charset):
+                    highlight_cells[pos] = "yellow"
+                for _, pt in get_handles(shape).items():
+                    handle_cells.add((pt.col, pt.row))
+            if tool.hover_shape and tool.hover_shape not in tool.selected:
+                for pos in tool.hover_shape.render(charset):
+                    highlight_cells[pos] = "bright_cyan"
+                for _, pt in get_handles(tool.hover_shape).items():
+                    handle_cells.add((pt.col, pt.row))
+
+        if tool is not None and hasattr(tool, "overlays"):
+            for overlay in tool.overlays():
+                if isinstance(overlay, SnapHighlight):
+                    snap_edge_cells |= self._snap_edge_cells(overlay)
+                elif isinstance(overlay, EdgeHover):
+                    edge_hover_cells |= self._edge_hover_cells(overlay, charset)
+
+        return highlight_cells, handle_cells, snap_edge_cells, edge_hover_cells
 
     def _edge_hover_cells(
         self, overlay: EdgeHover, charset: CharSet

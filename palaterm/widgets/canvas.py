@@ -281,7 +281,7 @@ class CanvasWidget(ScrollView, can_focus=True):
             # (we already had to invalidate the cache anyway).
             self.refresh()
             return
-        self._renderer.invalidate()
+        self._renderer.invalidate(canvas_rect)
         super().refresh(region)
 
     def _canvas_to_screen_region(self, canvas_rect: Rect) -> Region | None:

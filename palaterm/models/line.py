@@ -430,6 +430,7 @@ class LineShape(Shape):
         self._edges_modified = False
         self._joint_points = []
         self._recompute()
+        self._bump_version()
 
     @staticmethod
     def _side_is_horizontal(side: str | None) -> bool | None:
@@ -479,7 +480,9 @@ class LineShape(Shape):
                     return True
         return False
 
-    def render(self, charset: CharSet = CharSet.UNICODE) -> dict[tuple[int, int], str]:
+    def _render_impl(
+        self, charset: CharSet = CharSet.UNICODE
+    ) -> dict[tuple[int, int], str]:
         if self.line_style == LineStyle.STRAIGHT or self.border == BorderStyle.BRAILLE:
             if charset == CharSet.ASCII:
                 if self.line_style == LineStyle.STRAIGHT:

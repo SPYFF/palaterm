@@ -403,3 +403,51 @@ def test_line_move_translates_authoritative_joints() -> None:
     ln.move(3, 1)
     after = list(ln.joint_points)
     assert all(b.col + 3 == a.col and b.row + 1 == a.row for b, a in zip(before, after))
+
+
+# --- Render cache tests ---
+
+
+def test_render_cache_returns_same_object_on_repeated_call() -> None:
+    """Calling render() twice without mutation returns the same dict object."""
+    box = BoxShape(Rect(0, 0, 4, 3), border=BorderStyle.LIGHT)
+    r1 = box.render(CharSet.UNICODE)
+    r2 = box.render(CharSet.UNICODE)
+    assert r1 is r2
+
+
+def test_render_cache_invalidated_by_move() -> None:
+    """After move(), render() returns a fresh dict."""
+    box = BoxShape(Rect(0, 0, 4, 3), border=BorderStyle.LIGHT)
+    r1 = box.render(CharSet.UNICODE)
+    box.move(1, 0)
+    r2 = box.render(CharSet.UNICODE)
+    assert r1 is not r2
+
+
+def test_render_cache_invalidated_by_charset_change() -> None:
+    """Calling render() with a different charset returns a fresh dict."""
+    box = BoxShape(Rect(0, 0, 4, 3), border=BorderStyle.LIGHT)
+    r1 = box.render(CharSet.UNICODE)
+    r2 = box.render(CharSet.ASCII)
+    assert r1 is not r2
+
+
+def test_render_cache_invalidated_by_attribute_change() -> None:
+    """Setting a tracked attribute invalidates the cache."""
+    box = BoxShape(Rect(0, 0, 4, 3), border=BorderStyle.LIGHT)
+    r1 = box.render(CharSet.UNICODE)
+    box.border = BorderStyle.HEAVY
+    r2 = box.render(CharSet.UNICODE)
+    assert r1 is not r2
+
+
+def test_line_render_cache() -> None:
+    """LineShape render cache works the same way."""
+    ln = LineShape(Point(0, 0), Point(5, 0), line_style=LineStyle.ORTHOGONAL)
+    r1 = ln.render(CharSet.UNICODE)
+    r2 = ln.render(CharSet.UNICODE)
+    assert r1 is r2
+    ln.move(1, 0)
+    r3 = ln.render(CharSet.UNICODE)
+    assert r1 is not r3
