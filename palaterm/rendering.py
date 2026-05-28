@@ -35,10 +35,7 @@ class FrameRenderer:
     def __init__(self, canvas: Canvas) -> None:
         self.canvas = canvas
         self._cache: tuple | None = None
-        # Pending dirty rect for partial invalidation.
         self._dirty_rect: Rect | None = None
-        # Last viewport/charset used to build the cache — needed to detect
-        # when a full rebuild is required (viewport scroll or charset change).
         self._cache_viewport: Rect | None = None
         self._cache_charset: CharSet | None = None
 
@@ -53,10 +50,8 @@ class FrameRenderer:
             self._cache = None
             self._dirty_rect = None
             return
-        # If there's no existing cache, a full rebuild is needed anyway.
         if self._cache is None:
             return
-        # Accumulate dirty rects via union.
         if self._dirty_rect is None:
             self._dirty_rect = dirty_rect
         else:
@@ -74,10 +69,8 @@ class FrameRenderer:
         base_style: RichStyle,
         charset: CharSet,
     ) -> tuple:
-        # If viewport or charset changed since last cache, force full rebuild.
-        if (
-            self._cache is not None
-            and (viewport != self._cache_viewport or charset != self._cache_charset)
+        if self._cache is not None and (
+            viewport != self._cache_viewport or charset != self._cache_charset
         ):
             self._cache = None
             self._dirty_rect = None
@@ -86,21 +79,24 @@ class FrameRenderer:
             return self._cache
 
         if self._cache is None:
-            # Full rebuild.
             cells = self.canvas.render_region(viewport, charset)
-            cell_styles = self._build_cell_styles(charset)
+            cell_styles = self._build_cell_styles(charset, base_style)
         else:
-            # Partial rebuild: recompute only cells in the dirty rect.
             cells = self._cache[0]
             cell_styles = self._cache[7]
-            self._patch_cells(cells, cell_styles, self._dirty_rect, viewport, charset)
+            self._patch_cells(
+                cells,
+                cell_styles,
+                self._dirty_rect,
+                viewport,
+                charset,
+                base_style,
+            )
 
         self._dirty_rect = None
         self._cache_viewport = viewport
         self._cache_charset = charset
 
-        # Overlays are always fully recomputed (they read from cached
-        # shape.render() dicts so they're cheap).
         highlight_cells, handle_cells, snap_edge_cells, edge_hover_cells = (
             self._build_overlays(tool, charset)
         )
@@ -123,6 +119,14 @@ class FrameRenderer:
                     charset,
                 )
 
+        # Pre-compute merged styles once per frame (not per row).
+        cyan_style = base_style + _FG_CYAN
+        magenta_style = base_style + _FG_MAGENTA
+        snap_style = base_style + _FG_SNAP
+        edge_hover_style = base_style + _FG_EDGE_HOVER
+        highlight_yellow = base_style + _FG_HIGHLIGHT["yellow"]
+        highlight_cyan = base_style + _FG_HIGHLIGHT["bright_cyan"]
+
         self._cache = (
             cells,
             highlight_cells,
@@ -133,19 +137,27 @@ class FrameRenderer:
             snap_edge_cells,
             cell_styles,
             edge_hover_cells,
+            # Pre-merged styles (indices 9-14):
+            cyan_style,
+            magenta_style,
+            snap_style,
+            edge_hover_style,
+            highlight_yellow,
+            highlight_cyan,
         )
         return self._cache
 
     def _build_cell_styles(
-        self, charset: CharSet
+        self, charset: CharSet, base_style: RichStyle
     ) -> dict[tuple[int, int], RichStyle]:
+        """Build per-cell styles, pre-merged with base_style."""
         cell_styles: dict[tuple[int, int], RichStyle] = {}
         for shape in self.canvas.shapes:
             if shape.fg is None and shape.bg is None:
                 continue
-            shape_style = RichStyle(color=shape.fg, bgcolor=shape.bg)
+            merged = base_style + RichStyle(color=shape.fg, bgcolor=shape.bg)
             for pos in shape.render(charset):
-                cell_styles[pos] = shape_style
+                cell_styles[pos] = merged
         return cell_styles
 
     def _patch_cells(
@@ -155,6 +167,7 @@ class FrameRenderer:
         dirty: Rect,
         viewport: Rect,
         charset: CharSet,
+        base_style: RichStyle,
     ) -> None:
         """Recompute cells within the dirty rect, merging into existing dicts."""
         from .crossings import is_connectable, resolve_crossing
@@ -164,7 +177,6 @@ class FrameRenderer:
         d_right = dirty.left + dirty.width - 1
         d_bottom = dirty.top + dirty.height - 1
 
-        # Clamp to viewport.
         v_left, v_top = viewport.left, viewport.top
         v_right = viewport.left + viewport.width - 1
         v_bottom = viewport.top + viewport.height - 1
@@ -175,14 +187,12 @@ class FrameRenderer:
         if r_left > r_right or r_top > r_bottom:
             return
 
-        # Clear existing cells and styles in the dirty region.
         for row in range(r_top, r_bottom + 1):
             for col in range(r_left, r_right + 1):
                 pos = (col, row)
                 cells.pop(pos, None)
                 cell_styles.pop(pos, None)
 
-        # Re-composite shapes that intersect the dirty rect.
         for shape in self.canvas.shapes:
             b = shape.bound
             if (
@@ -192,9 +202,9 @@ class FrameRenderer:
                 or b.top > r_bottom
             ):
                 continue
-            shape_style = None
+            merged = None
             if shape.fg is not None or shape.bg is not None:
-                shape_style = RichStyle(color=shape.fg, bgcolor=shape.bg)
+                merged = base_style + RichStyle(color=shape.fg, bgcolor=shape.bg)
             for (col, row), ch in shape.render(charset).items():
                 if not (r_left <= col <= r_right and r_top <= row <= r_bottom):
                     continue
@@ -205,8 +215,8 @@ class FrameRenderer:
                     cells[(col, row)] = resolve_crossing(existing, ch)
                 else:
                     cells[(col, row)] = ch
-                if shape_style is not None:
-                    cell_styles[(col, row)] = shape_style
+                if merged is not None:
+                    cell_styles[(col, row)] = merged
 
         if charset == CharSet.ASCII:
             for row in range(r_top, r_bottom + 1):
@@ -303,31 +313,28 @@ class FrameRenderer:
         base_style: RichStyle,
         charset: CharSet = CharSet.UNICODE,
     ) -> Strip:
-        (
-            cells,
-            highlight_cells,
-            handle_cells,
-            sel_rect,
-            sel_braille,
-            base_style,
-            snap_edge_cells,
-            cell_styles,
-            edge_hover_cells,
-        ) = self._ensure_cache(viewport, tool, base_style, charset)
+        cache = self._ensure_cache(viewport, tool, base_style, charset)
+        cells = cache[0]
+        highlight_cells = cache[1]
+        handle_cells = cache[2]
+        sel_rect = cache[3]
+        sel_braille = cache[4]
+        base_style = cache[5]
+        snap_edge_cells = cache[6]
+        cell_styles = cache[7]
+        edge_hover_cells = cache[8]
+        cyan_style = cache[9]
+        magenta_style = cache[10]
+        snap_style = cache[11]
+        edge_hover_style = cache[12]
+        highlight_yellow = cache[13]
+        highlight_cyan = cache[14]
+
         row = y + viewport.top
         width = viewport.width
         scroll_col = viewport.left
 
-        # Merge fg-only highlight fragments onto the canvas's resolved style so
-        # they inherit its themed background instead of falling back to the
-        # terminal default.
-        cyan_style = base_style + _FG_CYAN
-        magenta_style = base_style + _FG_MAGENTA
-        snap_style = base_style + _FG_SNAP
-        edge_hover_style = base_style + _FG_EDGE_HOVER
-        highlight_styles = {k: base_style + v for k, v in _FG_HIGHLIGHT.items()}
-
-        # Selection rect color based on modifier
+        # Selection rect style — computed once per row (only when active).
         sel_modifier = ""
         sel_drag_start: tuple[int, int] | None = None
         if isinstance(tool, SelectTool):
@@ -341,13 +348,21 @@ class FrameRenderer:
         else:
             sel_style = cyan_style
 
+        # Determine if any selection overlay is active for this frame.
+        has_sel = bool(sel_braille or sel_rect)
+        handle_ch = "*" if charset == CharSet.ASCII else "◆"
+
+        # Build segments — use local variable references for speed.
+        _Seg = Segment
+        _get = cells.get
         segments: list[Segment] = []
+        _append = segments.append
+
         for x in range(width):
             col = x + scroll_col
             pos = (col, row)
-            ch = cells.get(pos, " ")
 
-            if sel_drag_start and pos == sel_drag_start and (sel_braille or sel_rect):
+            if has_sel and sel_drag_start and pos == sel_drag_start:
                 sign = (
                     "+"
                     if sel_modifier == "add"
@@ -356,23 +371,31 @@ class FrameRenderer:
                     else ""
                 )
                 if sign:
-                    segments.append(Segment(sign, sel_style))
+                    _append(_Seg(sign, sel_style))
                     continue
+
             if pos in sel_braille:
-                segments.append(Segment(sel_braille[pos], sel_style))
+                _append(_Seg(sel_braille[pos], sel_style))
             elif sel_rect and sel_rect.contains(col, row):
-                segments.append(Segment(ch, sel_style))
+                _append(_Seg(_get(pos, " "), sel_style))
             elif pos in handle_cells:
-                handle_ch = "*" if charset == CharSet.ASCII else "◆"
-                segments.append(Segment(handle_ch, magenta_style))
+                _append(_Seg(handle_ch, magenta_style))
             elif pos in snap_edge_cells:
-                segments.append(Segment(ch, snap_style))
+                _append(_Seg(_get(pos, " "), snap_style))
             elif pos in edge_hover_cells:
-                segments.append(Segment(ch, edge_hover_style))
+                _append(_Seg(_get(pos, " "), edge_hover_style))
             elif pos in highlight_cells:
-                segments.append(Segment(ch, highlight_styles[highlight_cells[pos]]))
+                _append(
+                    _Seg(
+                        _get(pos, " "),
+                        highlight_yellow
+                        if highlight_cells[pos] == "yellow"
+                        else highlight_cyan,
+                    )
+                )
             elif pos in cell_styles:
-                segments.append(Segment(ch, base_style + cell_styles[pos]))
+                _append(_Seg(_get(pos, " "), cell_styles[pos]))
             else:
-                segments.append(Segment(ch, base_style))
+                _append(_Seg(_get(pos, " "), base_style))
+
         return Strip(segments, width)

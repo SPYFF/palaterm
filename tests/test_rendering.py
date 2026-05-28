@@ -39,12 +39,8 @@ def test_dirty_rect_updates_moved_shape():
     dirty = Rect(
         min(old_bound.left, new_bound.left),
         min(old_bound.top, new_bound.top),
-        max(old_bound.right, new_bound.right)
-        - min(old_bound.left, new_bound.left)
-        + 1,
-        max(old_bound.bottom, new_bound.bottom)
-        - min(old_bound.top, new_bound.top)
-        + 1,
+        max(old_bound.right, new_bound.right) - min(old_bound.left, new_bound.left) + 1,
+        max(old_bound.bottom, new_bound.bottom) - min(old_bound.top, new_bound.top) + 1,
     )
     renderer.invalidate(dirty)
     cache = renderer._ensure_cache(VIEWPORT, None, BASE_STYLE, CharSet.UNICODE)

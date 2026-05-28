@@ -31,12 +31,26 @@ def render_border(rect: Rect, border: BorderStyle) -> dict[tuple[int, int], str]
 
 
 # Attributes whose mutation invalidates the render cache.
-_TRACKED_ATTRS = frozenset({
-    "text", "border", "fill", "halign", "valign",
-    "line_style", "start_ending", "end_ending",
-    "rect", "rect_f", "start", "end",
-    "start_side", "end_side", "start_sub", "end_sub",
-})
+_TRACKED_ATTRS = frozenset(
+    {
+        "text",
+        "border",
+        "fill",
+        "halign",
+        "valign",
+        "line_style",
+        "start_ending",
+        "end_ending",
+        "rect",
+        "rect_f",
+        "start",
+        "end",
+        "start_side",
+        "end_side",
+        "start_sub",
+        "end_sub",
+    }
+)
 
 
 class Shape(ABC):
@@ -69,9 +83,7 @@ class Shape(ABC):
         self, charset: CharSet = CharSet.UNICODE
     ) -> dict[tuple[int, int], str]: ...
 
-    def render(
-        self, charset: CharSet = CharSet.UNICODE
-    ) -> dict[tuple[int, int], str]:
+    def render(self, charset: CharSet = CharSet.UNICODE) -> dict[tuple[int, int], str]:
         """Cached render: returns the same dict if shape hasn't mutated."""
         cache = self._render_cache
         if cache is not None and cache[0] == self._version and cache[1] == charset:
