@@ -7,6 +7,7 @@ from rich.style import Style as RichStyle
 from textual.strip import Strip
 
 from .canvas import Canvas
+from .compositing import composite
 from .connectors import Side
 from .geometry import Rect
 from .models import CharSet, braille_rect, braille_rect_precise
@@ -79,18 +80,12 @@ class FrameRenderer:
             return self._cache
 
         if self._cache is None:
-            cells = self.canvas.render_region(viewport, charset)
-            cell_styles = self._build_cell_styles(charset, base_style)
+            cells, cell_styles = self._composite_to_cache(viewport, charset, base_style)
         else:
             cells = self._cache[0]
             cell_styles = self._cache[7]
             self._patch_cells(
-                cells,
-                cell_styles,
-                self._dirty_rect,
-                viewport,
-                charset,
-                base_style,
+                cells, cell_styles, self._dirty_rect, viewport, charset, base_style
             )
 
         self._dirty_rect = None
@@ -147,18 +142,18 @@ class FrameRenderer:
         )
         return self._cache
 
-    def _build_cell_styles(
-        self, charset: CharSet, base_style: RichStyle
-    ) -> dict[tuple[int, int], RichStyle]:
-        """Build per-cell styles, pre-merged with base_style."""
+    def _composite_to_cache(
+        self, region: Rect, charset: CharSet, base_style: RichStyle
+    ) -> tuple[dict[tuple[int, int], str], dict[tuple[int, int], RichStyle]]:
+        """Run the unified compositor and split into cells + cell_styles."""
+        styled = composite(self.canvas.shapes, region, charset)
+        cells: dict[tuple[int, int], str] = {}
         cell_styles: dict[tuple[int, int], RichStyle] = {}
-        for shape in self.canvas.shapes:
-            if shape.fg is None and shape.bg is None:
-                continue
-            merged = base_style + RichStyle(color=shape.fg, bgcolor=shape.bg)
-            for pos in shape.render(charset):
-                cell_styles[pos] = merged
-        return cell_styles
+        for pos, (ch, fg, bg) in styled.items():
+            cells[pos] = ch
+            if fg is not None or bg is not None:
+                cell_styles[pos] = base_style + RichStyle(color=fg, bgcolor=bg)
+        return cells, cell_styles
 
     def _patch_cells(
         self,
@@ -169,10 +164,7 @@ class FrameRenderer:
         charset: CharSet,
         base_style: RichStyle,
     ) -> None:
-        """Recompute cells within the dirty rect, merging into existing dicts."""
-        from .crossings import is_connectable, resolve_crossing
-        from .models import to_ascii
-
+        """Recompute cells within the dirty rect via the unified compositor."""
         d_left, d_top = dirty.left, dirty.top
         d_right = dirty.left + dirty.width - 1
         d_bottom = dirty.top + dirty.height - 1
@@ -187,43 +179,20 @@ class FrameRenderer:
         if r_left > r_right or r_top > r_bottom:
             return
 
+        # Clear dirty cells
         for row in range(r_top, r_bottom + 1):
             for col in range(r_left, r_right + 1):
                 pos = (col, row)
                 cells.pop(pos, None)
                 cell_styles.pop(pos, None)
 
-        for shape in self.canvas.shapes:
-            b = shape.bound
-            if (
-                b.left + b.width - 1 < r_left
-                or b.left > r_right
-                or b.top + b.height - 1 < r_top
-                or b.top > r_bottom
-            ):
-                continue
-            merged = None
-            if shape.fg is not None or shape.bg is not None:
-                merged = base_style + RichStyle(color=shape.fg, bgcolor=shape.bg)
-            for (col, row), ch in shape.render(charset).items():
-                if not (r_left <= col <= r_right and r_top <= row <= r_bottom):
-                    continue
-                if not (v_left <= col <= v_right and v_top <= row <= v_bottom):
-                    continue
-                existing = cells.get((col, row))
-                if existing and is_connectable(existing) and is_connectable(ch):
-                    cells[(col, row)] = resolve_crossing(existing, ch)
-                else:
-                    cells[(col, row)] = ch
-                if merged is not None:
-                    cell_styles[(col, row)] = merged
-
-        if charset == CharSet.ASCII:
-            for row in range(r_top, r_bottom + 1):
-                for col in range(r_left, r_right + 1):
-                    pos = (col, row)
-                    if pos in cells:
-                        cells[pos] = to_ascii(cells[pos])
+        # Re-composite the dirty sub-region
+        patch_region = Rect(r_left, r_top, r_right - r_left + 1, r_bottom - r_top + 1)
+        styled = composite(self.canvas.shapes, patch_region, charset)
+        for pos, (ch, fg, bg) in styled.items():
+            cells[pos] = ch
+            if fg is not None or bg is not None:
+                cell_styles[pos] = base_style + RichStyle(color=fg, bgcolor=bg)
 
     def _build_overlays(
         self, tool: DrawTool | SelectTool | None, charset: CharSet

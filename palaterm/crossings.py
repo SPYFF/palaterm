@@ -169,3 +169,14 @@ def resolve_crossing(existing: str, new: str) -> str:
     """Combine two overlapping box-drawing chars into the correct crossing char."""
     mask = CHAR_TO_MASK.get(existing, 0) | CHAR_TO_MASK.get(new, 0)
     return MASK_TO_CHAR.get(mask, new)
+
+
+def resolve_crossing_masked(existing: str, new: str, blocked: int) -> str:
+    """Merge two box-drawing chars with some arms of *existing* masked out.
+
+    ``blocked`` is a bitmask of directions (using the same bit layout as
+    ``CHAR_TO_MASK``) that should be removed from *existing* before merging.
+    This produces T-junctions where an occluding fill blocks one arm.
+    """
+    mask = (CHAR_TO_MASK.get(existing, 0) & ~blocked) | CHAR_TO_MASK.get(new, 0)
+    return MASK_TO_CHAR.get(mask, new)

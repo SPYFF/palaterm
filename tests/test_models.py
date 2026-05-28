@@ -94,10 +94,46 @@ def test_box_render_braille_border_uses_braille_block() -> None:
 def test_box_render_fill_paints_interior() -> None:
     box = BoxShape(Rect(0, 0, 4, 3), border=BorderStyle.NONE, fill=FillStyle.FULL)
     cells = box.render()
-    # Every cell in the rect should be `█`.
+    # With half-block edges: corners are quadrants, edges are half-blocks,
+    # interior is full block.
+    assert cells[(0, 0)] == "▗"  # top-left corner
+    assert cells[(3, 0)] == "▖"  # top-right corner
+    assert cells[(1, 0)] == "▄"  # top edge
+    assert cells[(0, 2)] == "▝"  # bottom-left corner
+    assert cells[(3, 2)] == "▘"  # bottom-right corner
+    assert cells[(1, 2)] == "▀"  # bottom edge
+    assert cells[(0, 1)] == "▐"  # left edge
+    assert cells[(3, 1)] == "▌"  # right edge
+    assert cells[(1, 1)] == "█"  # interior
+    assert cells[(2, 1)] == "█"  # interior
+
+
+def test_box_render_fill_full_small_uniform() -> None:
+    """A borderless FULL fill box smaller than 3x3 uses uniform fill."""
+    box = BoxShape(Rect(0, 0, 2, 2), border=BorderStyle.NONE, fill=FillStyle.FULL)
+    cells = box.render()
+    for col in range(2):
+        for row in range(2):
+            assert cells[(col, row)] == "█"
+
+
+def test_box_render_fill_medium_uniform() -> None:
+    """A borderless MEDIUM fill box uses uniform fill (no half-block edges)."""
+    box = BoxShape(Rect(0, 0, 4, 3), border=BorderStyle.NONE, fill=FillStyle.MEDIUM)
+    cells = box.render()
     for col in range(4):
         for row in range(3):
-            assert cells[(col, row)] == "█"
+            assert cells[(col, row)] == "▒"
+
+
+def test_box_render_fill_bordered_stays_uniform() -> None:
+    """A bordered box with FULL fill uses uniform fill inside the border."""
+    box = BoxShape(Rect(0, 0, 5, 4), border=BorderStyle.LIGHT, fill=FillStyle.FULL)
+    cells = box.render()
+    # Interior cells should be uniform full block
+    assert cells[(1, 1)] == "█"
+    assert cells[(2, 1)] == "█"
+    assert cells[(3, 1)] == "█"
 
 
 def test_box_hit_test_with_border() -> None:

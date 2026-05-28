@@ -9,6 +9,12 @@ from .base import RectShape, render_border
 from .charset import CharSet, braille_rect, braille_rect_precise
 from .enums import BORDER_CHARS, FILL_CHARS, BorderStyle, FillStyle, HAlign, VAlign
 
+# Half-block edge characters for borderless fills (indexed by FillStyle).
+# Order: TL, TR, top, BL, BR, bottom, left, right
+_HALF_FILL_EDGES: dict[FillStyle, tuple[str, str, str, str, str, str, str, str]] = {
+    FillStyle.FULL: ("▗", "▖", "▄", "▝", "▘", "▀", "▐", "▌"),
+}
+
 
 class BoxShape(RectShape):
     def __init__(
@@ -46,9 +52,45 @@ class BoxShape(RectShape):
         # Fill
         if self.fill != FillStyle.NONE:
             fc = FILL_CHARS[self.fill]
-            for row in range(r.top, r.bottom + 1):
-                for col in range(r.left, r.right + 1):
-                    cells[(col, row)] = fc
+            use_half = (
+                self.border == BorderStyle.NONE
+                and self.fill == FillStyle.FULL
+                and r.width >= 3
+                and r.height >= 3
+                and charset == CharSet.UNICODE
+            )
+            if use_half:
+                edge = _HALF_FILL_EDGES[self.fill]
+                for row in range(r.top, r.bottom + 1):
+                    for col in range(r.left, r.right + 1):
+                        is_top = row == r.top
+                        is_bot = row == r.bottom
+                        is_left = col == r.left
+                        is_right = col == r.right
+                        if is_top:
+                            if is_left:
+                                cells[(col, row)] = edge[0]
+                            elif is_right:
+                                cells[(col, row)] = edge[1]
+                            else:
+                                cells[(col, row)] = edge[2]
+                        elif is_bot:
+                            if is_left:
+                                cells[(col, row)] = edge[3]
+                            elif is_right:
+                                cells[(col, row)] = edge[4]
+                            else:
+                                cells[(col, row)] = edge[5]
+                        elif is_left:
+                            cells[(col, row)] = edge[6]
+                        elif is_right:
+                            cells[(col, row)] = edge[7]
+                        else:
+                            cells[(col, row)] = fc
+            else:
+                for row in range(r.top, r.bottom + 1):
+                    for col in range(r.left, r.right + 1):
+                        cells[(col, row)] = fc
 
         # Border (braille precision ignored when text is present)
         if self.border != BorderStyle.NONE:

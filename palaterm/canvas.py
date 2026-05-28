@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from .compositing import composite
 from .connectors import ConnectorManager
-from .crossings import is_connectable, resolve_crossing
 from .geometry import Rect
-from .models import CharSet, Shape, to_ascii
+from .models import CharSet, Shape
 
 
 class Canvas:
@@ -66,40 +66,14 @@ class Canvas:
         if i > 0:
             self.shapes[i], self.shapes[i - 1] = self.shapes[i - 1], self.shapes[i]
 
-    def render_region(
-        self, viewport: Rect, charset: CharSet = CharSet.UNICODE
-    ) -> dict[tuple[int, int], str]:
-        """Composite all shapes within the viewport into a character dict."""
-        cells: dict[tuple[int, int], str] = {}
-        v_left, v_top, v_right, v_bottom = (
-            viewport.left,
-            viewport.top,
-            viewport.right,
-            viewport.bottom,
-        )
-        for shape in self.shapes:
-            # Skip shapes whose bounding box doesn't intersect the viewport.
-            # `shape.render()` is expensive (it materializes every cell), so
-            # an AABB cull on the bound is much cheaper than rendering then
-            # filtering per-cell.
-            b = shape.bound
-            if (
-                b.right < v_left
-                or b.left > v_right
-                or b.bottom < v_top
-                or b.top > v_bottom
-            ):
-                continue
-            for (col, row), ch in shape.render(charset).items():
-                if v_left <= col <= v_right and v_top <= row <= v_bottom:
-                    existing = cells.get((col, row))
-                    if existing and is_connectable(existing) and is_connectable(ch):
-                        cells[(col, row)] = resolve_crossing(existing, ch)
-                    else:
-                        cells[(col, row)] = ch
-        if charset == CharSet.ASCII:
-            cells = {pos: to_ascii(ch) for pos, ch in cells.items()}
-        return cells
+    def composite(
+        self,
+        region: Rect,
+        charset: CharSet = CharSet.UNICODE,
+        shapes: list[Shape] | None = None,
+    ) -> dict[tuple[int, int], tuple[str, str | None, str | None]]:
+        """Composite shapes within *region*. Delegates to :mod:`compositing`."""
+        return composite(shapes if shapes is not None else self.shapes, region, charset)
 
     def export_to_text(
         self, shapes: list[Shape] | None = None, charset: CharSet = CharSet.UNICODE
@@ -108,21 +82,19 @@ class Canvas:
         targets = shapes if shapes else self.shapes
         if not targets:
             return ""
-        cells: dict[tuple[int, int], str] = {}
-        for shape in targets:
-            cells.update(shape.render(charset))
-        if not cells:
+        min_col = min(s.bound.left for s in targets)
+        max_col = max(s.bound.right for s in targets)
+        min_row = min(s.bound.top for s in targets)
+        max_row = max(s.bound.bottom for s in targets)
+        region = Rect(min_col, min_row, max_col - min_col + 1, max_row - min_row + 1)
+        styled = composite(targets, region, charset)
+        if not styled:
             return ""
-        if charset == CharSet.ASCII:
-            cells = {pos: to_ascii(ch) for pos, ch in cells.items()}
-        min_col = min(c for c, r in cells)
-        max_col = max(c for c, r in cells)
-        min_row = min(r for c, r in cells)
-        max_row = max(r for c, r in cells)
         lines = []
         for row in range(min_row, max_row + 1):
             line = "".join(
-                cells.get((col, row), " ") for col in range(min_col, max_col + 1)
+                styled[(col, row)][0] if (col, row) in styled else " "
+                for col in range(min_col, max_col + 1)
             )
             lines.append(line.rstrip())
         return "\n".join(lines)
@@ -132,37 +104,18 @@ class Canvas:
     ) -> tuple[Rect, dict[tuple[int, int], tuple[str, str | None, str | None]]]:
         """Composite shapes into a per-cell ``(char, fg, bg)`` grid.
 
-        Returns ``(bounding_rect, cells)``. Mirrors :meth:`export_to_text`'s
-        bounds-auto-cropping but keeps color information per cell.
-        Background runs are produced where ``shape.bg`` is set; foreground
-        always reflects ``shape.fg``. Crossing resolution applies to the
-        char component only — the resolved char inherits the most recent
-        shape's colors.
-
+        Returns ``(bounding_rect, cells)``.
         Returns ``(Rect(0, 0, 0, 0), {})`` when there is nothing to render.
         """
         targets = shapes if shapes else self.shapes
         if not targets:
             return Rect(0, 0, 0, 0), {}
-
-        cells: dict[tuple[int, int], tuple[str, str | None, str | None]] = {}
-        for shape in targets:
-            fg, bg = shape.fg, shape.bg
-            for (col, row), ch in shape.render(charset).items():
-                existing = cells.get((col, row))
-                if existing and is_connectable(existing[0]) and is_connectable(ch):
-                    ch = resolve_crossing(existing[0], ch)
-                cells[(col, row)] = (ch, fg, bg)
-
+        min_col = min(s.bound.left for s in targets)
+        max_col = max(s.bound.right for s in targets)
+        min_row = min(s.bound.top for s in targets)
+        max_row = max(s.bound.bottom for s in targets)
+        region = Rect(min_col, min_row, max_col - min_col + 1, max_row - min_row + 1)
+        cells = composite(targets, region, charset)
         if not cells:
             return Rect(0, 0, 0, 0), {}
-
-        if charset == CharSet.ASCII:
-            cells = {pos: (to_ascii(ch), fg, bg) for pos, (ch, fg, bg) in cells.items()}
-
-        min_col = min(c for c, r in cells)
-        max_col = max(c for c, r in cells)
-        min_row = min(r for c, r in cells)
-        max_row = max(r for c, r in cells)
-        bound = Rect(min_col, min_row, max_col - min_col + 1, max_row - min_row + 1)
-        return bound, cells
+        return region, cells

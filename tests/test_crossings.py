@@ -5,10 +5,15 @@ from __future__ import annotations
 import pytest
 from palaterm.connectors import Anchor, Connector, ConnectorManager, Side
 from palaterm.crossings import (
+    _SB,
+    _SL,
+    _SR,
+    _ST,
     CHAR_TO_MASK,
     MASK_TO_CHAR,
     is_connectable,
     resolve_crossing,
+    resolve_crossing_masked,
 )
 
 # --- is_connectable ------------------------------------------------------
@@ -274,6 +279,32 @@ def test_resolve_crossing_with_non_box_char() -> None:
     """A non-box second char contributes 0 to the mask, so the first wins."""
     assert resolve_crossing("─", "x") == "─"
     assert resolve_crossing("x", "─") == "─"
+
+
+# --- resolve_crossing_masked ----------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "existing,new,blocked,expected",
+    [
+        # Block bottom arm of │ when merging with ─ → ┴ (left+right+up)
+        ("│", "─", _SB, "┴"),
+        # Block top arm of │ when merging with ─ → ┬ (left+right+down)
+        ("│", "─", _ST, "┬"),
+        # Block left arm of ─ when merging with │ → ├ (right+up+down)
+        ("─", "│", _SL, "├"),
+        # Block right arm of ─ when merging with │ → ┤ (left+up+down)
+        ("─", "│", _SR, "┤"),
+        # Block both vertical arms of │ → only new char's mask survives
+        ("│", "─", _ST | _SB, "─"),
+        # No blocked arms → normal crossing
+        ("│", "─", 0, "┼"),
+    ],
+)
+def test_resolve_crossing_masked_t_junctions(
+    existing: str, new: str, blocked: int, expected: str
+) -> None:
+    assert resolve_crossing_masked(existing, new, blocked) == expected
 
 
 # --- ConnectorManager ----------------------------------------------------
