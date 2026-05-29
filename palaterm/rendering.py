@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import NamedTuple
+
 from rich.segment import Segment
 from rich.style import Style as RichStyle
 from textual.strip import Strip
@@ -30,12 +32,30 @@ _FG_HIGHLIGHT = {
 }
 
 
+class _FrameCache(NamedTuple):
+    cells: dict[tuple[int, int], str]
+    highlight_cells: dict[tuple[int, int], str]
+    handle_cells: set[tuple[int, int]]
+    sel_rect: Rect | None
+    sel_braille: dict[tuple[int, int], str]
+    base_style: RichStyle
+    snap_edge_cells: set[tuple[int, int]]
+    cell_styles: dict[tuple[int, int], RichStyle]
+    edge_hover_cells: set[tuple[int, int]]
+    cyan_style: RichStyle
+    magenta_style: RichStyle
+    snap_style: RichStyle
+    edge_hover_style: RichStyle
+    highlight_yellow: RichStyle
+    highlight_cyan: RichStyle
+
+
 class FrameRenderer:
     """Caches per-frame compositing data and renders individual lines."""
 
     def __init__(self, canvas: Canvas) -> None:
         self.canvas = canvas
-        self._cache: tuple | None = None
+        self._cache: _FrameCache | None = None
         self._dirty_rect: Rect | None = None
         self._cache_viewport: Rect | None = None
         self._cache_charset: CharSet | None = None
@@ -69,7 +89,7 @@ class FrameRenderer:
         tool: DrawTool | SelectTool | None,
         base_style: RichStyle,
         charset: CharSet,
-    ) -> tuple:
+    ) -> _FrameCache:
         if self._cache is not None and (
             viewport != self._cache_viewport or charset != self._cache_charset
         ):
@@ -82,8 +102,8 @@ class FrameRenderer:
         if self._cache is None:
             cells, cell_styles = self._composite_to_cache(viewport, charset, base_style)
         else:
-            cells = self._cache[0]
-            cell_styles = self._cache[7]
+            cells = self._cache.cells
+            cell_styles = self._cache.cell_styles
             self._patch_cells(
                 cells, cell_styles, self._dirty_rect, viewport, charset, base_style
             )
@@ -114,31 +134,22 @@ class FrameRenderer:
                     charset,
                 )
 
-        # Pre-compute merged styles once per frame (not per row).
-        cyan_style = base_style + _FG_CYAN
-        magenta_style = base_style + _FG_MAGENTA
-        snap_style = base_style + _FG_SNAP
-        edge_hover_style = base_style + _FG_EDGE_HOVER
-        highlight_yellow = base_style + _FG_HIGHLIGHT["yellow"]
-        highlight_cyan = base_style + _FG_HIGHLIGHT["bright_cyan"]
-
-        self._cache = (
-            cells,
-            highlight_cells,
-            handle_cells,
-            sel_rect,
-            sel_braille,
-            base_style,
-            snap_edge_cells,
-            cell_styles,
-            edge_hover_cells,
-            # Pre-merged styles (indices 9-14):
-            cyan_style,
-            magenta_style,
-            snap_style,
-            edge_hover_style,
-            highlight_yellow,
-            highlight_cyan,
+        self._cache = _FrameCache(
+            cells=cells,
+            highlight_cells=highlight_cells,
+            handle_cells=handle_cells,
+            sel_rect=sel_rect,
+            sel_braille=sel_braille,
+            base_style=base_style,
+            snap_edge_cells=snap_edge_cells,
+            cell_styles=cell_styles,
+            edge_hover_cells=edge_hover_cells,
+            cyan_style=base_style + _FG_CYAN,
+            magenta_style=base_style + _FG_MAGENTA,
+            snap_style=base_style + _FG_SNAP,
+            edge_hover_style=base_style + _FG_EDGE_HOVER,
+            highlight_yellow=base_style + _FG_HIGHLIGHT["yellow"],
+            highlight_cyan=base_style + _FG_HIGHLIGHT["bright_cyan"],
         )
         return self._cache
 
@@ -282,22 +293,7 @@ class FrameRenderer:
         base_style: RichStyle,
         charset: CharSet = CharSet.UNICODE,
     ) -> Strip:
-        cache = self._ensure_cache(viewport, tool, base_style, charset)
-        cells = cache[0]
-        highlight_cells = cache[1]
-        handle_cells = cache[2]
-        sel_rect = cache[3]
-        sel_braille = cache[4]
-        base_style = cache[5]
-        snap_edge_cells = cache[6]
-        cell_styles = cache[7]
-        edge_hover_cells = cache[8]
-        cyan_style = cache[9]
-        magenta_style = cache[10]
-        snap_style = cache[11]
-        edge_hover_style = cache[12]
-        highlight_yellow = cache[13]
-        highlight_cyan = cache[14]
+        c = self._ensure_cache(viewport, tool, base_style, charset)
 
         row = y + viewport.top
         width = viewport.width
@@ -311,19 +307,19 @@ class FrameRenderer:
             if tool._drag_start:
                 sel_drag_start = (tool._drag_start.col, tool._drag_start.row)
         if sel_modifier == "add":
-            sel_style = base_style + _FG_GREEN
+            sel_style = c.base_style + _FG_GREEN
         elif sel_modifier == "remove":
-            sel_style = base_style + _FG_RED
+            sel_style = c.base_style + _FG_RED
         else:
-            sel_style = cyan_style
+            sel_style = c.cyan_style
 
         # Determine if any selection overlay is active for this frame.
-        has_sel = bool(sel_braille or sel_rect)
+        has_sel = bool(c.sel_braille or c.sel_rect)
         handle_ch = "*" if charset == CharSet.ASCII else "◆"
 
         # Build segments — use local variable references for speed.
         _Seg = Segment
-        _get = cells.get
+        _get = c.cells.get
         segments: list[Segment] = []
         _append = segments.append
 
@@ -343,28 +339,28 @@ class FrameRenderer:
                     _append(_Seg(sign, sel_style))
                     continue
 
-            if pos in sel_braille:
-                _append(_Seg(sel_braille[pos], sel_style))
-            elif sel_rect and sel_rect.contains(col, row):
+            if pos in c.sel_braille:
+                _append(_Seg(c.sel_braille[pos], sel_style))
+            elif c.sel_rect and c.sel_rect.contains(col, row):
                 _append(_Seg(_get(pos, " "), sel_style))
-            elif pos in handle_cells:
-                _append(_Seg(handle_ch, magenta_style))
-            elif pos in snap_edge_cells:
-                _append(_Seg(_get(pos, " "), snap_style))
-            elif pos in edge_hover_cells:
-                _append(_Seg(_get(pos, " "), edge_hover_style))
-            elif pos in highlight_cells:
+            elif pos in c.handle_cells:
+                _append(_Seg(handle_ch, c.magenta_style))
+            elif pos in c.snap_edge_cells:
+                _append(_Seg(_get(pos, " "), c.snap_style))
+            elif pos in c.edge_hover_cells:
+                _append(_Seg(_get(pos, " "), c.edge_hover_style))
+            elif pos in c.highlight_cells:
                 _append(
                     _Seg(
                         _get(pos, " "),
-                        highlight_yellow
-                        if highlight_cells[pos] == "yellow"
-                        else highlight_cyan,
+                        c.highlight_yellow
+                        if c.highlight_cells[pos] == "yellow"
+                        else c.highlight_cyan,
                     )
                 )
-            elif pos in cell_styles:
-                _append(_Seg(_get(pos, " "), cell_styles[pos]))
+            elif pos in c.cell_styles:
+                _append(_Seg(_get(pos, " "), c.cell_styles[pos]))
             else:
-                _append(_Seg(_get(pos, " "), base_style))
+                _append(_Seg(_get(pos, " "), c.base_style))
 
         return Strip(segments, width)
