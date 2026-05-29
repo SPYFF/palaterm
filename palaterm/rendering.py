@@ -99,7 +99,9 @@ class FrameRenderer:
         if self._cache is not None and self._dirty_rect is None:
             return self._cache
 
-        if self._cache is None:
+        full_rebuild = self._cache is None
+
+        if full_rebuild:
             cells, cell_styles = self._composite_to_cache(viewport, charset, base_style)
         else:
             cells = self._cache.cells
@@ -112,27 +114,37 @@ class FrameRenderer:
         self._cache_viewport = viewport
         self._cache_charset = charset
 
-        highlight_cells, handle_cells, snap_edge_cells, edge_hover_cells = (
-            self._build_overlays(tool, charset)
-        )
+        # Overlays only depend on tool/selection state, not cell content.
+        # Reuse them on dirty-rect patches; rebuild only on full invalidation.
+        if full_rebuild:
+            highlight_cells, handle_cells, snap_edge_cells, edge_hover_cells = (
+                self._build_overlays(tool, charset)
+            )
 
-        sel_rect = None
-        if isinstance(tool, SelectTool) and tool.selection_rect:
-            sel_rect = tool.selection_rect
+            sel_rect = None
+            if isinstance(tool, SelectTool) and tool.selection_rect:
+                sel_rect = tool.selection_rect
 
-        sel_braille: dict[tuple[int, int], str] = {}
-        if sel_rect:
-            if isinstance(tool, SelectTool) and tool.selection_rect_f:
-                lf, tf, rf, bf = tool.selection_rect_f
-                sel_braille = braille_rect_precise(lf, tf, rf, bf, charset)
-            else:
-                sel_braille = braille_rect(
-                    sel_rect.left,
-                    sel_rect.top,
-                    sel_rect.right,
-                    sel_rect.bottom,
-                    charset,
-                )
+            sel_braille: dict[tuple[int, int], str] = {}
+            if sel_rect:
+                if isinstance(tool, SelectTool) and tool.selection_rect_f:
+                    lf, tf, rf, bf = tool.selection_rect_f
+                    sel_braille = braille_rect_precise(lf, tf, rf, bf, charset)
+                else:
+                    sel_braille = braille_rect(
+                        sel_rect.left,
+                        sel_rect.top,
+                        sel_rect.right,
+                        sel_rect.bottom,
+                        charset,
+                    )
+        else:
+            highlight_cells = self._cache.highlight_cells
+            handle_cells = self._cache.handle_cells
+            snap_edge_cells = self._cache.snap_edge_cells
+            edge_hover_cells = self._cache.edge_hover_cells
+            sel_rect = self._cache.sel_rect
+            sel_braille = self._cache.sel_braille
 
         self._cache = _FrameCache(
             cells=cells,
