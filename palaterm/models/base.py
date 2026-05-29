@@ -92,6 +92,11 @@ class Shape(ABC):
         self._render_cache = (self._version, charset, result)
         return result
 
+    @property
+    def fill_interior(self) -> Rect | None:
+        """Return the filled interior rect for occlusion, or None if transparent."""
+        return None
+
     def hit_test(self, col: int, row: int) -> bool:
         return self.bound.contains(col, row)
 

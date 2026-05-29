@@ -41,6 +41,16 @@ class BoxShape(RectShape):
             return self.bound.contains(col, row)
         return self.bound.contains(col, row) and bool(self.text)
 
+    @property
+    def fill_interior(self) -> Rect | None:
+        """Return the filled interior rect for occlusion, or None if transparent."""
+        if self.fill == FillStyle.NONE:
+            return None
+        b = self.bound
+        if self.border != BorderStyle.NONE and b.width >= 3 and b.height >= 3:
+            return Rect(b.left + 1, b.top + 1, b.width - 2, b.height - 2)
+        return b
+
     def _render_impl(
         self, charset: CharSet = CharSet.UNICODE
     ) -> dict[tuple[int, int], str]:

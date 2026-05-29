@@ -20,7 +20,7 @@ from .crossings import (
     resolve_crossing_masked,
 )
 from .geometry import Rect
-from .models import BorderStyle, CharSet, FillStyle, Shape, to_ascii
+from .models import CharSet, Shape, to_ascii
 
 # Blocked-direction masks covering all weight tiers for a given direction.
 _BLOCK_T = _ST | _HT | _DT
@@ -87,23 +87,16 @@ def composite(
         if b.right < r_left or b.left > r_right or b.bottom < r_top or b.top > r_bottom:
             continue
 
-        # Determine occlusion: does this shape have fill?
-        has_fill = hasattr(shape, "fill") and shape.fill != FillStyle.NONE
+        # Determine occlusion via the shape's fill_interior property.
+        fill_rect = shape.fill_interior
 
-        # Compute fill interior rect for T-junction checks
+        # Compute fill interior bounds for T-junction checks
         fill_left = fill_top = fill_right = fill_bottom = 0
-        if has_fill:
-            has_border = hasattr(shape, "border") and shape.border != BorderStyle.NONE
-            if has_border and b.width >= 3 and b.height >= 3:
-                fill_left = b.left + 1
-                fill_top = b.top + 1
-                fill_right = b.right - 1
-                fill_bottom = b.bottom - 1
-            else:
-                fill_left = b.left
-                fill_top = b.top
-                fill_right = b.right
-                fill_bottom = b.bottom
+        if fill_rect is not None:
+            fill_left = fill_rect.left
+            fill_top = fill_rect.top
+            fill_right = fill_rect.right
+            fill_bottom = fill_rect.bottom
 
         fg, bg = shape.fg, shape.bg
 
@@ -113,7 +106,7 @@ def composite(
             pos = (col, row)
             existing = cells.get(pos)
             if existing and is_connectable(existing[0]) and is_connectable(ch):
-                if has_fill:
+                if fill_rect is not None:
                     blocked = 0
                     if fill_left <= col <= fill_right:
                         if fill_top <= row - 1 <= fill_bottom:
