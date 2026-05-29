@@ -70,33 +70,22 @@ class BoxShape(RectShape):
                 and charset == CharSet.UNICODE
             )
             if use_half:
-                edge = _HALF_FILL_EDGES[self.fill]
-                for row in range(r.top, r.bottom + 1):
-                    for col in range(r.left, r.right + 1):
-                        is_top = row == r.top
-                        is_bot = row == r.bottom
-                        is_left = col == r.left
-                        is_right = col == r.right
-                        if is_top:
-                            if is_left:
-                                cells[(col, row)] = edge[0]
-                            elif is_right:
-                                cells[(col, row)] = edge[1]
-                            else:
-                                cells[(col, row)] = edge[2]
-                        elif is_bot:
-                            if is_left:
-                                cells[(col, row)] = edge[3]
-                            elif is_right:
-                                cells[(col, row)] = edge[4]
-                            else:
-                                cells[(col, row)] = edge[5]
-                        elif is_left:
-                            cells[(col, row)] = edge[6]
-                        elif is_right:
-                            cells[(col, row)] = edge[7]
-                        else:
-                            cells[(col, row)] = fc
+                tl, tr, top, bl, br, bot, left, right = _HALF_FILL_EDGES[self.fill]
+                # Corners
+                cells[(r.left, r.top)] = tl
+                cells[(r.right, r.top)] = tr
+                cells[(r.left, r.bottom)] = bl
+                cells[(r.right, r.bottom)] = br
+                # Top/bottom edges
+                for col in range(r.left + 1, r.right):
+                    cells[(col, r.top)] = top
+                    cells[(col, r.bottom)] = bot
+                # Left/right edges + interior
+                for row in range(r.top + 1, r.bottom):
+                    cells[(r.left, row)] = left
+                    cells[(r.right, row)] = right
+                    for col in range(r.left + 1, r.right):
+                        cells[(col, row)] = fc
             else:
                 for row in range(r.top, r.bottom + 1):
                     for col in range(r.left, r.right + 1):
