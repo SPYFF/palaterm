@@ -59,14 +59,27 @@ class FrameRenderer:
         self._dirty_rect: Rect | None = None
         self._cache_viewport: Rect | None = None
         self._cache_charset: CharSet | None = None
+        # Overlays (highlights, handles, snap edges) track tool/selection/hover
+        # state, not cell content. They have their own dirty flag because that
+        # state changes are delivered via dirty-rect invalidations (e.g. hover
+        # swaps), so a cell-only patch must still be able to refresh them.
+        self._overlays_dirty: bool = True
 
-    def invalidate(self, dirty_rect: Rect | None = None) -> None:
+    def invalidate(
+        self, dirty_rect: Rect | None = None, *, overlays: bool = True
+    ) -> None:
         """Mark the cache as needing a rebuild.
 
         If ``dirty_rect`` is provided and a cache already exists, only the
         cells within that rect will be recomputed on the next render pass.
         If ``None``, the entire cache is discarded.
+
+        ``overlays`` (default ``True``) marks overlay data stale too. Pass
+        ``False`` for a pure cell-content patch that cannot change any
+        tool/selection/hover overlay, to skip the overlay rebuild.
         """
+        if overlays:
+            self._overlays_dirty = True
         if dirty_rect is None:
             self._cache = None
             self._dirty_rect = None
@@ -114,9 +127,10 @@ class FrameRenderer:
         self._cache_viewport = viewport
         self._cache_charset = charset
 
-        # Overlays only depend on tool/selection state, not cell content.
-        # Reuse them on dirty-rect patches; rebuild only on full invalidation.
-        if full_rebuild:
+        # Rebuild overlays whenever their state may have changed. A missing
+        # cache always forces a rebuild; a dirty-rect patch reuses them unless
+        # explicitly marked dirty (the hover/selection path does mark them).
+        if full_rebuild or self._overlays_dirty:
             highlight_cells, handle_cells, snap_edge_cells, edge_hover_cells = (
                 self._build_overlays(tool, charset)
             )
@@ -145,6 +159,8 @@ class FrameRenderer:
             edge_hover_cells = self._cache.edge_hover_cells
             sel_rect = self._cache.sel_rect
             sel_braille = self._cache.sel_braille
+
+        self._overlays_dirty = False
 
         self._cache = _FrameCache(
             cells=cells,
