@@ -48,8 +48,16 @@ class ToolController:
             case ToolType.TEXT:
                 return TextTool(self.border_style, self.fill)
             case ToolType.LINE:
+                # Lines can't render without a border; NONE (inherited from a
+                # borderless box) has no BORDER_CHARS entry and crashes the
+                # renderer. Fall back to LIGHT.
+                line_border = (
+                    self.border_style
+                    if self.border_style != BorderStyle.NONE
+                    else BorderStyle.LIGHT
+                )
                 return LineTool(
-                    self.border_style,
+                    line_border,
                     self.line_style,
                     self.start_ending,
                     self.end_ending,
