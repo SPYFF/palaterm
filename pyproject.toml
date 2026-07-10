@@ -1,6 +1,6 @@
 [project]
 name = "palaterm"
-version = "1.0.1"
+version = "1.0.2"
 description = "A TUI drawing application inspired by MonoSketch"
 requires-python = ">=3.11"
 dependencies = [
