@@ -107,7 +107,7 @@ class PalatermApp(App):
         border-right: solid $accent;
     }
     #sidebar > * {
-        margin-bottom: 1;
+        margin-bottom: 0;
     }
     #sidebar-spacer {
         height: 1fr;

@@ -21,8 +21,17 @@ class LayerPanel(CollapsiblePanel):
     """Layer reordering buttons."""
 
     DEFAULT_CSS = """
-    LayerPanel Button {
-        width: 1fr;
+    LayerPanel #layer-bring_to_front {
+        width: 3;
+    }
+    LayerPanel #layer-bring_forward {
+        width: 5;
+    }
+    LayerPanel #layer-send_backward {
+        width: 4;
+    }
+    LayerPanel #layer-send_to_back {
+        width: 3;
     }
     LayerPanel Horizontal {
         height: 1;
