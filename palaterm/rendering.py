@@ -48,6 +48,13 @@ class _FrameCache(NamedTuple):
     edge_hover_style: RichStyle
     highlight_yellow: RichStyle
     highlight_cyan: RichStyle
+    # Lazily-populated per-row memo: absolute row -> list of (char, style,
+    # dynamic) for x in [0, viewport.width). `dynamic` marks a selection cell
+    # whose style depends on the live drag modifier and is resolved per frame.
+    # Reused across render_line calls that share this cache (e.g. warm-cache
+    # full frames, repeated single-line renders). Mutating this dict on the
+    # NamedTuple is intentional — only this field is mutated post-construction.
+    row_cache: dict[int, list[tuple[str, RichStyle, bool]]]
 
 
 class FrameRenderer:
@@ -163,6 +170,7 @@ class FrameRenderer:
         self._overlays_dirty = False
 
         self._cache = _FrameCache(
+            row_cache={},
             cells=cells,
             highlight_cells=highlight_cells,
             handle_cells=handle_cells,
@@ -313,6 +321,67 @@ class FrameRenderer:
                     cells.add((col, b.bottom))
         return cells
 
+    def _resolve_row(
+        self,
+        c: _FrameCache,
+        row: int,
+        width: int,
+        scroll_col: int,
+        handle_ch: str,
+    ) -> list[tuple[str, RichStyle, bool]]:
+        """Resolve one absolute *row* into ``(char, style, dynamic)`` per column.
+
+        Runs the per-cell overlay/style branch ladder once and memoizes the
+        result on ``c.row_cache``. ``dynamic=True`` marks a selection-overlay
+        cell whose colour depends on the live drag modifier; ``render_line``
+        swaps in the current ``sel_style`` for those. All other cells carry a
+        fully-resolved style. Memoized rows are reused across every
+        ``render_line`` call sharing this cache.
+        """
+        memo = c.row_cache.get(row)
+        if memo is not None:
+            return memo
+
+        _get = c.cells.get
+        sel_braille = c.sel_braille
+        sel_rect = c.sel_rect
+        handle_cells = c.handle_cells
+        snap_edge_cells = c.snap_edge_cells
+        edge_hover_cells = c.edge_hover_cells
+        highlight_cells = c.highlight_cells
+        cell_styles = c.cell_styles
+        base_style = c.base_style
+
+        resolved: list[tuple[str, RichStyle, bool]] = []
+        _r_append = resolved.append
+        for x in range(width):
+            col = x + scroll_col
+            pos = (col, row)
+            if pos in sel_braille:
+                _r_append((sel_braille[pos], base_style, True))
+            elif sel_rect and sel_rect.contains(col, row):
+                _r_append((_get(pos, " "), base_style, True))
+            elif pos in handle_cells:
+                _r_append((handle_ch, c.magenta_style, False))
+            elif pos in snap_edge_cells:
+                _r_append((_get(pos, " "), c.snap_style, False))
+            elif pos in edge_hover_cells:
+                _r_append((_get(pos, " "), c.edge_hover_style, False))
+            elif pos in highlight_cells:
+                style = (
+                    c.highlight_yellow
+                    if highlight_cells[pos] == "yellow"
+                    else c.highlight_cyan
+                )
+                _r_append((_get(pos, " "), style, False))
+            elif pos in cell_styles:
+                _r_append((_get(pos, " "), cell_styles[pos], False))
+            else:
+                _r_append((_get(pos, " "), base_style, False))
+
+        c.row_cache[row] = resolved
+        return resolved
+
     def render_line(
         self,
         y: int,
@@ -341,54 +410,48 @@ class FrameRenderer:
         else:
             sel_style = c.cyan_style
 
-        # Determine if any selection overlay is active for this frame.
-        has_sel = bool(c.sel_braille or c.sel_rect)
         handle_ch = "*" if charset == CharSet.ASCII else "◆"
+        resolved = self._resolve_row(c, row, width, scroll_col, handle_ch)
 
-        # Build segments — use local variable references for speed.
+        # Live drag-start sign: a single cell whose glyph depends on the
+        # modifier, so it can't be memoized. Compute its viewport x once.
+        sign_x = -1
+        sign = ""
+        if sel_drag_start is not None and sel_drag_start[1] == row:
+            if sel_modifier == "add":
+                sign = "+"
+            elif sel_modifier == "remove":
+                sign = "−"
+            if sign:
+                sign_x = sel_drag_start[0] - scroll_col
+
+        # Coalesce runs of identical style into one Segment each, collapsing the
+        # per-cell object churn. Selection cells (dynamic) take sel_style now.
         _Seg = Segment
-        _get = c.cells.get
         segments: list[Segment] = []
         _append = segments.append
-
+        run_chars: list[str] = []
+        run_style: RichStyle | None = None
         for x in range(width):
-            col = x + scroll_col
-            pos = (col, row)
-
-            if has_sel and sel_drag_start and pos == sel_drag_start:
-                sign = (
-                    "+"
-                    if sel_modifier == "add"
-                    else "−"
-                    if sel_modifier == "remove"
-                    else ""
-                )
-                if sign:
-                    _append(_Seg(sign, sel_style))
-                    continue
-
-            if pos in c.sel_braille:
-                _append(_Seg(c.sel_braille[pos], sel_style))
-            elif c.sel_rect and c.sel_rect.contains(col, row):
-                _append(_Seg(_get(pos, " "), sel_style))
-            elif pos in c.handle_cells:
-                _append(_Seg(handle_ch, c.magenta_style))
-            elif pos in c.snap_edge_cells:
-                _append(_Seg(_get(pos, " "), c.snap_style))
-            elif pos in c.edge_hover_cells:
-                _append(_Seg(_get(pos, " "), c.edge_hover_style))
-            elif pos in c.highlight_cells:
-                _append(
-                    _Seg(
-                        _get(pos, " "),
-                        c.highlight_yellow
-                        if c.highlight_cells[pos] == "yellow"
-                        else c.highlight_cyan,
-                    )
-                )
-            elif pos in c.cell_styles:
-                _append(_Seg(_get(pos, " "), c.cell_styles[pos]))
+            if x == sign_x:
+                # Flush the current run, emit the one-off sign, reset.
+                if run_chars:
+                    _append(_Seg("".join(run_chars), run_style))
+                    run_chars = []
+                    run_style = None
+                _append(_Seg(sign, sel_style))
+                continue
+            ch, style, dynamic = resolved[x]
+            if dynamic:
+                style = sel_style
+            if style is run_style:
+                run_chars.append(ch)
             else:
-                _append(_Seg(_get(pos, " "), c.base_style))
+                if run_chars:
+                    _append(_Seg("".join(run_chars), run_style))
+                run_chars = [ch]
+                run_style = style
+        if run_chars:
+            _append(_Seg("".join(run_chars), run_style))
 
         return Strip(segments, width)
