@@ -22,3 +22,7 @@ uv.lock
 
 # OS
 .DS_Store
+
+# Machine-specific render timing baseline (regenerate per machine via
+# `uv run python scripts/bench_render.py --save-baseline`)
+scripts/bench_render_baseline.json

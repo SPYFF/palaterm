@@ -23,8 +23,12 @@ uv run ruff check                      # lint (errors, style, imports)
 uv run ruff format --check             # check formatting without modifying
 uv run ruff format                     # auto-format in place
 
-uv run python scripts/bench_render.py     # render benchmark on the fixed-50 canvas
-uv run python scripts/bench_serialize.py  # serialization benchmark
+uv run python scripts/bench_render.py           # render benchmark on the fixed-50 canvas
+uv run python scripts/bench_render.py --save-baseline  # record a regression baseline
+uv run python scripts/bench_render.py --check   # compare vs baseline, exit 1 on regression
+uv run python scripts/bench_serialize.py     # serialization benchmark
+uv run python scripts/bench_serialize.py --save-baseline  # record (committed) baseline
+uv run python scripts/bench_serialize.py --check  # exit 1 if structural metrics regress
 ```
 
 `uv run palaterm` requires a real TTY — run it in a terminal, not piped. It probes the terminal via `OSC 11` to auto-pick a light/dark theme.
